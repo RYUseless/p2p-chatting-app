@@ -11,14 +11,16 @@ import androidx.core.content.ContextCompat
 
 class EnableBluetooth(private val context: Context) {
 
-    companion object {
-        const val REQUEST_ENABLE_BT = 1001
+    private val bluetoothManager: BluetoothManager =
+        context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+    private val bluetoothAdapter: BluetoothAdapter? = bluetoothManager.adapter
+
+    fun isBluetoothEnabled(): Boolean {
+        return bluetoothAdapter?.isEnabled ?: false
     }
 
-    fun getBluetoothAdapter(): BluetoothAdapter? {
-        val bluetoothManager: BluetoothManager =
-            context.getSystemService(BluetoothManager::class.java)
-        return bluetoothManager.adapter
+    fun getEnableBluetoothIntent(): Intent? {
+        return Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
     }
 
     fun hasBluetoothPermission(): Boolean {
@@ -26,25 +28,16 @@ class EnableBluetooth(private val context: Context) {
             ContextCompat.checkSelfPermission(
                 context,
                 Manifest.permission.BLUETOOTH_CONNECT
-            ) == PackageManager.PERMISSION_GRANTED
+            ) == PackageManager.PERMISSION_GRANTED &&
+                    ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.BLUETOOTH_SCAN
+                    ) == PackageManager.PERMISSION_GRANTED
         } else {
             true
         }
     }
-
-    fun isBluetoothEnabled(): Boolean {
-        val bluetoothAdapter = getBluetoothAdapter()
-        return bluetoothAdapter?.isEnabled ?: false
-    }
-
-    fun getEnableBluetoothIntent(): Intent? {
-        val bluetoothAdapter = getBluetoothAdapter()
-        return if (bluetoothAdapter?.isEnabled == false) {
-            Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
-        } else {
-            null
-        }
-    }
 }
+
 
 
