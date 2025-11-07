@@ -2,184 +2,210 @@ package ryu.masters.ryup2p.logic.bluetooth
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.*
+
+
 
 @SuppressLint("MissingPermission")
-class BluetoothController(
-    private val context: Context,
-    private val onUpdate: (BluetoothState) -> Unit,
-    private val onError: (String) -> Unit
-) {
-    private val handler = Handler(Looper.getMainLooper())
-    private val scanMs: Long = 33_000L
-    private val discoveredDevices: MutableSet<BluetoothDevice> = mutableSetOf()
-    private var registered = false
-
-    private val bluetoothManager: BluetoothManager? =
-        context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+class BluetoothController(private val context: Context) {
+    private val bluetoothManager: BluetoothManager? = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
     private val bluetoothAdapter: BluetoothAdapter? = bluetoothManager?.adapter
 
+    private val _scannedDevices = MutableStateFlow<List<BluetoothDevice>>(emptyList())
+    val scannedDevices: StateFlow<List<BluetoothDevice>> = _scannedDevices
+
+    private val _pairedDevices = MutableStateFlow<List<BluetoothDevice>>(emptyList())
+    // val pairedDevices: StateFlow<List<BluetoothDevice>> = _pairedDevices
+
+    private val _isConnected = MutableStateFlow(false)
+    val isConnected: StateFlow<Boolean> = _isConnected
+
+    private val _connectedDeviceName = MutableStateFlow<String?>(null)
+    val connectedDeviceName: StateFlow<String?> = _connectedDeviceName
+
+    private val _isServer = MutableStateFlow(false)
+    val isServer: StateFlow<Boolean> = _isServer
+
+    private val _messages = MutableStateFlow<List<String>>(emptyList())
+    val messages: StateFlow<List<String>> = _messages
+
+    private var connectionManager: BluetoothConnectionManager? = null
+    private var receiverRegistered = false
+    private var readThread: Thread? = null
+
+    private val coroutineScope = CoroutineScope(Dispatchers.Main + Job())
+    private var discoveryTimeoutJob: Job? = null
+
+    // timer pro find as client 30s search
+    private val _isSearching = MutableStateFlow(false)
+    val isSearching: StateFlow<Boolean> = _isSearching
+
+    companion object {
+        const val TAG = "BTController"
+    }
+
     private val receiver = object : BroadcastReceiver() {
+        @SuppressLint("MissingPermission")
         override fun onReceive(context: Context, intent: Intent) {
-            Log.d("BTController", "onReceive called with action: ${intent.action}")
-            val action: String? = intent.action
-            when (action) {
-                BluetoothDevice.ACTION_FOUND -> {
-                    Log.d("BTController", "ACTION_FOUND received!")
-                    val device: BluetoothDevice? = if (Build.VERSION.SDK_INT >= 33) {
-                        intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
+            when (intent.action) {
+                android.bluetooth.BluetoothDevice.ACTION_FOUND -> {
+                    val device = if (Build.VERSION.SDK_INT >= 33) {
+                        intent.getParcelableExtra(android.bluetooth.BluetoothDevice.EXTRA_DEVICE, android.bluetooth.BluetoothDevice::class.java)
                     } else {
                         @Suppress("DEPRECATION")
-                        intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+                        intent.getParcelableExtra(android.bluetooth.BluetoothDevice.EXTRA_DEVICE)
                     }
-
                     device?.let {
-                        val deviceName = it.name
-                        val deviceHardwareAddress = it.address
-                        Log.d("BTController", "Device found: $deviceName ($deviceHardwareAddress)")
-                        discoveredDevices.add(it)
-                        publishState(true)
+                        Log.d(TAG, "Found device: ${it.name}")
+                        val btDevice = BluetoothDevice(name = it.name, address = it.address)
+                        if (!_scannedDevices.value.any { d -> d.address == btDevice.address }) {
+                            _scannedDevices.value = _scannedDevices.value + btDevice
+                        }
                     }
-                }
-                BluetoothAdapter.ACTION_DISCOVERY_STARTED -> {
-                    Log.d("BTController", "ACTION_DISCOVERY_STARTED received")
-                    discoveredDevices.clear()
-                    publishState(true)
-                }
-                BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> {
-                    Log.d("BTController", "ACTION_DISCOVERY_FINISHED received")
-                    publishState(false)
-                    handler.removeCallbacksAndMessages(null)
                 }
             }
         }
     }
 
-    fun buildEnableIntent(): Intent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
-
-    fun buildDiscoverableIntent(durationSeconds: Int = 300): Intent =
-        Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
-            putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, durationSeconds)
-        }
-
-    fun getPairedDevices(): Set<BluetoothDevice> {
-        val pairedDevices: Set<BluetoothDevice>? = bluetoothAdapter?.bondedDevices
-        return pairedDevices ?: emptySet()
+    fun startServer() {
+        Log.d(TAG, "Starting server mode")
+        _isServer.value = true
+        connectionManager = BluetoothConnectionManager(
+            bluetoothAdapter,
+            onConnected = { _, remoteName ->
+                Log.d(TAG, "Server: connected to $remoteName")
+                _isConnected.value = true
+                _connectedDeviceName.value = remoteName
+                startReadThread()
+            },
+            onError = { err -> Log.e(TAG, "Server error: $err") }
+        )
+        connectionManager?.startServer()
+        makeDiscoverable()
     }
 
-    fun startDiscovery() {
-        val adapter = bluetoothAdapter ?: run {
-            onError("Bluetooth adapter not available")
-            Log.e("BTController", "Bluetooth adapter is null")
-            return
-        }
+    fun startClientMode() {
+        Log.d(TAG, "Starting client mode")
+        discoveryTimeoutJob?.cancel()
 
-        if (!adapter.isEnabled) {
-            onError("Bluetooth is disabled")
-            Log.e("BTController", "Bluetooth is disabled")
-            return
-        }
-
-        Log.d("BTController", "Starting discovery on API ${Build.VERSION.SDK_INT}")
-
-        // MUSÍ být zaregistrovaný PŘED startDiscovery
+        _isServer.value = false
+        _scannedDevices.value = emptyList()
+        updatePairedDevices()
+        bluetoothAdapter?.startDiscovery()
         registerReceiver()
 
-        if (adapter.isDiscovering) {
-            Log.d("BTController", "Already discovering - canceling first")
-            adapter.cancelDiscovery()
-        }
+        _isSearching.value = true
 
-        discoveredDevices.clear()
-
-        val started = adapter.startDiscovery()
-        Log.d("BTController", "startDiscovery() returned: $started")
-
-        if (started) {
-            publishState(true)
-            handler.postDelayed({
-                Log.d("BTController", "33s timeout - stopping discovery")
-                stopDiscovery()
-            }, scanMs)
-        } else {
-            onError("Failed to start discovery")
-            publishState(false)
+        discoveryTimeoutJob = coroutineScope.launch {
+            //TODO: migrate origin value to BL_control.conf
+            delay(30_000)
+            unregisterReceiver()
         }
     }
 
-    fun stopDiscovery() {
-        Log.d("BTController", "Stopping discovery")
-        bluetoothAdapter?.cancelDiscovery()
-        publishState(false)
-        handler.removeCallbacksAndMessages(null)
+    fun makeDiscoverable() {
+        Log.d(TAG, "Making device discoverable")
+        context.startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
+            putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 60)
+        })
+    }
+
+    suspend fun connectToDevice(device: BluetoothDevice) {
+        Log.d(TAG, "Attempting to connect to: ${device.name}")
+        if (connectionManager == null) {
+            Log.d(TAG, "Creating new connection manager")
+            connectionManager = BluetoothConnectionManager(
+                bluetoothAdapter,
+                onConnected = { _, remoteName ->
+                    Log.d(TAG, "Client: connected to $remoteName")
+                    _isConnected.value = true
+                    _connectedDeviceName.value = remoteName
+                    startReadThread()
+                },
+                onError = { err -> Log.e(TAG, "Client error: $err") }
+            )
+        }
+        val androidDevice = bluetoothAdapter?.getRemoteDevice(device.address)
+        if (androidDevice != null && connectionManager != null) {
+            Log.d(TAG, "Initiating connection to ${androidDevice.name}")
+            connectionManager!!.connectAsClient(androidDevice)
+        } else {
+            Log.e(TAG, "Cannot connect: device=$androidDevice, manager=$connectionManager")
+        }
+    }
+
+    fun sendMessage(text: String) {
+        connectionManager?.sendMessage(text)
+        _messages.value = _messages.value + ("You: $text")
+    }
+
+    private fun startReadThread() {
+        if (readThread != null) return
+        readThread = Thread {
+            Log.d(TAG, "Read thread started")
+            while (_isConnected.value && connectionManager?.socket?.isConnected == true) {
+                try {
+                    val message = connectionManager?.readMessage()
+                    if (message != null) {
+                        _messages.value = _messages.value + ("Remote: $message")
+                    }
+                    Thread.sleep(100)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Read thread error: ${e.message}")
+                    break
+                }
+            }
+            Log.d(TAG, "Read thread ended")
+        }
+        readThread?.start()
+    }
+
+    fun verifyConnection(): Boolean = connectionManager?.verifyConnection() == true
+
+    private fun updatePairedDevices() {
+        val paired = bluetoothAdapter?.bondedDevices?.map {
+            BluetoothDevice(name = it.name, address = it.address)
+        } ?: emptyList()
+        _pairedDevices.value = paired
     }
 
     private fun registerReceiver() {
-        if (registered) {
-            Log.d("BTController", "Receiver already registered")
-            return
-        }
-
-        val filter = IntentFilter().apply {
-            addAction(BluetoothDevice.ACTION_FOUND)
-            addAction(BluetoothDevice.ACTION_NAME_CHANGED)
-            addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED)
-            addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
-        }
-
+        if (receiverRegistered) return
         try {
+            val filter = IntentFilter(android.bluetooth.BluetoothDevice.ACTION_FOUND)
             if (Build.VERSION.SDK_INT >= 33) {
-                // Pro API 33+ (Android 13+) použij RECEIVER_EXPORTED
                 context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
-                Log.d("BTController", "Receiver registered as EXPORTED for API ${Build.VERSION.SDK_INT}")
             } else {
+                @Suppress("DEPRECATION")
                 context.registerReceiver(receiver, filter)
-                Log.d("BTController", "Receiver registered (no flag) for API ${Build.VERSION.SDK_INT}")
             }
-            registered = true
+            receiverRegistered = true
         } catch (e: Exception) {
-            Log.e("BTController", "Failed to register receiver: ${e.message}", e)
+            Log.e(TAG, "Register receiver error", e)
         }
     }
-
 
     fun unregisterReceiver() {
-        if (!registered) {
-            Log.d("BTController", "Receiver not registered - nothing to unregister")
-            return
-        }
+        if (!receiverRegistered) return
         try {
             context.unregisterReceiver(receiver)
-            Log.d("BTController", "Receiver unregistered successfully")
+            receiverRegistered = false
+            _isSearching.value = false
+            discoveryTimeoutJob?.cancel()
         } catch (e: Exception) {
-            Log.e("BTController", "Failed to unregister receiver: ${e.message}")
-        } finally {
-            registered = false
+            Log.e(TAG, "Unregister receiver error", e)
         }
     }
-
-    private fun publishState(scanning: Boolean) {
-        val paired = getPairedDevices()
-        val baseState = BluetoothState.fromContext(context)
-        val updatedState = BluetoothState(
-            isBluetoothSupported = baseState.isBluetoothSupported,
-            isEnabled = baseState.isEnabled,
-            localName = baseState.localName,
-            bondedDevices = paired,
-            connectedDevices = emptyList(),
-            discoveredDevices = discoveredDevices.toSet(),
-            isScanning = scanning
-        )
-        Log.d("BTController", "Publishing state - scanning: $scanning, discovered: ${discoveredDevices.size}")
-        onUpdate(updatedState)
-    }
 }
+
+

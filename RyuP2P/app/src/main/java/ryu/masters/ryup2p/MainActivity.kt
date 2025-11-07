@@ -1,293 +1,149 @@
 package ryu.masters.ryup2p
 
 import android.Manifest
-import android.annotation.SuppressLint
-import android.app.Activity
-import android.bluetooth.BluetoothDevice
-import android.content.Context
-import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
+import kotlinx.coroutines.launch
 import ryu.masters.ryup2p.logic.bluetooth.BluetoothController
-import ryu.masters.ryup2p.logic.bluetooth.BluetoothState
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Log.d("MainActivity", "Running on API level: ${Build.VERSION.SDK_INT}")
-        setContent { BluetoothScreen(applicationContext) }
-    }
-}
 
-@SuppressLint("MissingPermission")
-@Composable
-fun BluetoothScreen(appContext: Context) {
-    val context = LocalContext.current
+        val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
 
-    // ===== ROZLIŠENÍ API VERZÍ PRO PERMISSIONS =====
-    // API 31+ (Android 12+): BLUETOOTH_SCAN + BLUETOOTH_CONNECT + Location
-    // API 29-30 (Android 10-11): Pouze Location permissions
-    val corePerms = remember {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            Log.d("BluetoothScreen", "API 31+ detected - requesting new Bluetooth permissions")
-            arrayOf(
+            permissionLauncher.launch(arrayOf(
                 Manifest.permission.BLUETOOTH_SCAN,
                 Manifest.permission.BLUETOOTH_CONNECT,
                 Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            )
-        } else {
-            Log.d("BluetoothScreen", "API 29-30 detected - requesting legacy Location permissions")
-            arrayOf(
-                Manifest.permission.ACCESS_COARSE_LOCATION,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            )
-        }
-    }
-
-    val advertisePerm = remember {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            Log.d("BluetoothScreen", "API 31+ - BLUETOOTH_ADVERTISE permission available")
-            Manifest.permission.BLUETOOTH_ADVERTISE
-        } else {
-            Log.d("BluetoothScreen", "API 29-30 - BLUETOOTH_ADVERTISE not needed")
-            null
-        }
-    }
-
-    var state by remember { mutableStateOf(BluetoothState.fromContext(appContext)) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var enableInProgress by remember { mutableStateOf(false) }
-    var discoverableInProgress by remember { mutableStateOf(false) }
-    var pendingAction by remember { mutableStateOf<(() -> Unit)?>(null) }
-
-    fun has(p: String) = ContextCompat.checkSelfPermission(context, p) == PackageManager.PERMISSION_GRANTED
-
-    fun missing(perms: Array<String>): Array<String> {
-        val missingPerms = perms.filter { !has(it) }.toTypedArray()
-        if (missingPerms.isNotEmpty()) {
-            Log.w("BluetoothScreen", "Missing permissions: ${missingPerms.joinToString()}")
-        }
-        return missingPerms
-    }
-
-    fun missingForSearch() = missing(corePerms)
-
-    fun missingForVisible(): Array<String> {
-        val m = corePerms.filter { !has(it) }.toMutableList()
-        if (advertisePerm != null && !has(advertisePerm)) m += advertisePerm
-        return m.toTypedArray()
-    }
-
-    val controller = remember {
-        BluetoothController(
-            context = appContext,
-            onUpdate = { s ->
-                state = s
-                Log.d("BluetoothScreen", "State updated - scanning: ${s.isScanning}, discovered: ${s.discoveredDevices.size}")
-            },
-            onError = { msg ->
-                error = msg
-                Log.e("BluetoothScreen", "Error: $msg")
-            }
-        )
-    }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            Log.d("BluetoothScreen", "Disposing - unregistering receiver")
-            controller.unregisterReceiver()
-        }
-    }
-
-    val enableBtLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { res ->
-        enableInProgress = false
-        if (res.resultCode == Activity.RESULT_OK) {
-            Log.d("BluetoothScreen", "Bluetooth enabled successfully")
-            state = BluetoothState.fromContext(appContext)
-            if (state.isBluetoothSupported && state.isEnabled) {
-                controller.startDiscovery()
-            }
-        } else {
-            error = "Bluetooth enabling was canceled"
-            Log.w("BluetoothScreen", "Bluetooth enabling was canceled")
-        }
-    }
-
-    val discoverableLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { res ->
-        discoverableInProgress = false
-        if (res.resultCode == Activity.RESULT_CANCELED) {
-            error = "Discoverable request was canceled"
-            Log.w("BluetoothScreen", "Discoverable request was canceled")
-        } else {
-            Log.d("BluetoothScreen", "Device is now discoverable for ${res.resultCode} seconds")
-        }
-    }
-
-    val permsLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { results ->
-        Log.d("BluetoothScreen", "Permissions result: $results")
-        val allGranted = results.all { it.value }
-        if (allGranted) {
-            Log.d("BluetoothScreen", "All permissions granted")
-        } else {
-            Log.w("BluetoothScreen", "Some permissions were denied")
-        }
-        state = BluetoothState.fromContext(appContext)
-        pendingAction?.invoke()
-        pendingAction = null
-    }
-
-    fun proceedScanAfterPerms() {
-        Log.d("BluetoothScreen", "Proceeding with scan after permissions check")
-        state = BluetoothState.fromContext(appContext)
-        if (!state.isBluetoothSupported) {
-            error = "Bluetooth not supported"
-            Log.e("BluetoothScreen", "Bluetooth not supported on this device")
-            return
-        }
-        if (!state.isEnabled) {
-            Log.d("BluetoothScreen", "Bluetooth disabled - requesting enable")
-            enableInProgress = true
-            enableBtLauncher.launch(controller.buildEnableIntent())
-            return
-        }
-        Log.d("BluetoothScreen", "Starting discovery")
-        controller.startDiscovery()
-    }
-
-    fun onSearchClick() {
-        error = null
-        if (state.isScanning) {
-            Log.w("BluetoothScreen", "Already scanning - ignoring click")
-            return
+                Manifest.permission.BLUETOOTH_ADVERTISE
+            ))
         }
 
-        Log.d("BluetoothScreen", "Search clicked - checking permissions for API ${Build.VERSION.SDK_INT}")
-        val miss = missingForSearch()
-        if (miss.isNotEmpty()) {
-            Log.d("BluetoothScreen", "Requesting missing permissions: ${miss.joinToString()}")
-            pendingAction = { proceedScanAfterPerms() }
-            permsLauncher.launch(miss)
-            return
-        }
-        proceedScanAfterPerms()
-    }
+        setContent {
+            val btController = remember { BluetoothController(this@MainActivity) }
+            val scannedDevices by btController.scannedDevices.collectAsState()
+            val isConnected by btController.isConnected.collectAsState()
+            val connectedDeviceName by btController.connectedDeviceName.collectAsState()
+            val isServer by btController.isServer.collectAsState()
+            val messages by btController.messages.collectAsState()
+            val scope = rememberCoroutineScope()
+            var inputText by remember { mutableStateOf("") }
+            val isSearching by btController.isSearching.collectAsState()
 
-    fun onMakeVisibleClick(durationSec: Int = 300) {
-        error = null
-        if (state.isScanning) {
-            Log.w("BluetoothScreen", "Scanning in progress - ignoring visible click")
-            return
-        }
 
-        Log.d("BluetoothScreen", "Make visible clicked - checking permissions")
-        val miss = missingForVisible()
-        if (miss.isNotEmpty()) {
-            Log.d("BluetoothScreen", "Requesting missing permissions for discoverable: ${miss.joinToString()}")
-            pendingAction = {
-                discoverableInProgress = true
-                discoverableLauncher.launch(controller.buildDiscoverableIntent(durationSec))
-            }
-            permsLauncher.launch(miss)
-            return
-        }
-        discoverableInProgress = true
-        discoverableLauncher.launch(controller.buildDiscoverableIntent(durationSec))
-    }
+            var buttonText by remember { mutableStateOf("Find Server") }
 
-    Scaffold(
-        bottomBar = {
-            Surface(tonalElevation = 2.dp) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(
-                            enabled = !state.isScanning && !enableInProgress && !discoverableInProgress,
-                            onClick = { onSearchClick() }
-                        ) { Text(if (state.isScanning) "Scanning…" else "Search") }
-                        Button(
-                            enabled = !state.isScanning && !enableInProgress && !discoverableInProgress,
-                            onClick = { onMakeVisibleClick(300) }
-                        ) { Text("Make visible") }
+            Scaffold(
+                bottomBar = {
+                    if (!isConnected) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                enabled = !isServer,
+                                onClick = { btController.startServer() },
+                                modifier = Modifier.weight(1f)
+                            ) { Text("Be Server") }
+                            Button(  // client
+                                enabled = !isServer && !isSearching,
+                                onClick = { btController.startClientMode() },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                val buttonText = if (isSearching) "Searching..." else "Find Server"
+                                Text(buttonText)
+                            }
+
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            TextField(
+                                value = inputText,
+                                onValueChange = { inputText = it },
+                                modifier = Modifier.weight(1f),
+                                placeholder = { Text("Message...") }
+                            )
+                            Button(onClick = {
+                                if (inputText.isNotBlank()) {
+                                    btController.sendMessage(inputText)
+                                    inputText = ""
+                                }
+                            }) { Text("Send") }
+                        }
                     }
-                    if (state.isScanning) {
-                        Text("Running 33s scan", style = MaterialTheme.typography.bodyMedium)
+                }
+            ) { padding ->
+                Column(
+                    modifier = Modifier
+                        .padding(padding)
+                        .padding(16.dp)
+                        .fillMaxSize()
+                ) {
+                    if (isConnected && connectedDeviceName != null) {
+                        Card(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text("✓ Connected", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                                Text("Device: $connectedDeviceName", style = MaterialTheme.typography.bodyMedium)
+                                Text("Status: ${if (btController.verifyConnection()) "✓ Verified" else "✗ Lost"}", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        Text("Messages (${messages.size})", style = MaterialTheme.typography.titleMedium)
+                        LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                            items(messages) { msg ->
+                                Text(msg, modifier = Modifier.padding(4.dp), style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    } else {
+                        Text("Status: ${if (isServer) "Server Waiting..." else "Idle"}", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(16.dp))
+                        if (scannedDevices.isNotEmpty()) {
+                            Text("Available Devices (${scannedDevices.size})", style = MaterialTheme.typography.titleMedium)
+                            LazyColumn(modifier = Modifier.weight(1f)) {
+                                items(scannedDevices) { device ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(device.name ?: "Unknown")
+                                            Text(device.address, style = MaterialTheme.typography.bodySmall)
+                                        }
+                                        Button(onClick = {
+                                            scope.launch {
+                                                btController.connectToDevice(device)
+                                            }
+                                        }) { Text("Connect") }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
-    ) { padding ->
-        Column(Modifier.padding(padding).padding(16.dp).fillMaxSize()) {
-            // API level info
-            Text(
-                "Android API: ${Build.VERSION.SDK_INT}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(4.dp))
-
-            if (error != null) {
-                Text(error!!, color = MaterialTheme.colorScheme.error)
-                Spacer(Modifier.height(8.dp))
-            }
-
-            Text("Paired devices (${state.bondedDevices.size}):")
-            Spacer(Modifier.height(6.dp))
-            val paired = state.bondedDevices.toList().sortedBy { it.name ?: it.address }
-            if (paired.isEmpty()) {
-                Text("No paired devices", style = MaterialTheme.typography.bodySmall)
-            }
-            LazyColumn(Modifier.heightIn(max = 160.dp)) {
-                items(paired) { dev -> DeviceRow(dev) {} }
-            }
-
-            Spacer(Modifier.height(12.dp))
-            Text("Discovered devices (${state.discoveredDevices.size}):")
-            Spacer(Modifier.height(6.dp))
-            val devices = state.discoveredDevices.toList().sortedBy { it.name ?: it.address }
-            if (!state.isScanning && devices.isEmpty()) {
-                Text("No devices found", style = MaterialTheme.typography.bodyMedium)
-            }
-            LazyColumn(Modifier.fillMaxSize()) {
-                items(devices) { dev -> DeviceRow(dev) {} }
-            }
-        }
     }
 }
 
-@SuppressLint("MissingPermission")
-@Composable
-private fun DeviceRow(device: BluetoothDevice, onClick: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(vertical = 8.dp)
-    ) {
-        Text(device.name ?: "(Unknown name)")
-        Text(device.address, style = MaterialTheme.typography.bodySmall)
-    }
-}
+
