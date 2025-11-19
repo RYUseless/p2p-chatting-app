@@ -84,6 +84,7 @@ class MainActivity : ComponentActivity() {
                             )
                             Button(onClick = {
                                 if (inputText.isNotBlank()) {
+                                    //zde volat encrypt funkcu
                                     btController.sendMessage(inputText)
                                     inputText = ""
                                 }

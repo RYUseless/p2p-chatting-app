@@ -18,6 +18,7 @@ class BluetoothConnectionManager(
 ) {
     companion object {
         const val UUID_STRING = "00001101-0000-1000-8000-00805F9B34FB"
+        
         const val TAG = "BluetoothConnMgr"
     }
 
@@ -81,6 +82,7 @@ class BluetoothConnectionManager(
             if (bytes > 0) {
                 val message = String(buffer, 0, bytes, Charsets.UTF_8).trim()
                 Log.d(TAG, "Received: $message")
+                //here decypher function
                 message
             } else {
                 null
