@@ -30,6 +30,7 @@ object AesKeyManager {
         return secretKey
     }
     fun saveKey(context: Context) { }
+
     fun loadKey(context: Context): SecretKey {
         val secretKey = SecretKeySpec("TO BE IMPLEMENTED".toByteArray(), "AES")
         return secretKey

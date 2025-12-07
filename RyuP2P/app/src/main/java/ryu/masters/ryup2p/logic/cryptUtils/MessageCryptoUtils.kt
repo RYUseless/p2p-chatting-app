@@ -7,6 +7,7 @@ import javax.crypto.spec.IvParameterSpec
 
 
 class MessageCryptoUtils(
+    // zde se pokaždé generuje klíč, potřeba změnit na check, if key exists
     private val secretKey: SecretKey = AesKeyManager.generateSecretKey(),
     private val iv: IvParameterSpec = AesKeyManager.generateIV()
 ){

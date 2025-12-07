@@ -21,7 +21,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             permissionLauncher.launch(arrayOf(
                 Manifest.permission.BLUETOOTH_SCAN,
@@ -38,12 +37,10 @@ class MainActivity : ComponentActivity() {
             val connectedDeviceName by btController.connectedDeviceName.collectAsState()
             val isServer by btController.isServer.collectAsState()
             val messages by btController.messages.collectAsState()
+            val currentRoomId by btController.currentRoomId.collectAsState()
             val scope = rememberCoroutineScope()
             var inputText by remember { mutableStateOf("") }
             val isSearching by btController.isSearching.collectAsState()
-
-
-            var buttonText by remember { mutableStateOf("Find Server") }
 
             Scaffold(
                 bottomBar = {
@@ -58,16 +55,17 @@ class MainActivity : ComponentActivity() {
                                 enabled = !isServer,
                                 onClick = { btController.startServer() },
                                 modifier = Modifier.weight(1f)
-                            ) { Text("Be Server") }
-                            Button(  // client
+                            ) {
+                                Text("Create Room")
+                            }
+                            Button(
                                 enabled = !isServer && !isSearching,
                                 onClick = { btController.startClientMode() },
                                 modifier = Modifier.weight(1f)
                             ) {
-                                val buttonText = if (isSearching) "Searching..." else "Find Server"
+                                val buttonText = if (isSearching) "Searching..." else "Connect to Room"
                                 Text(buttonText)
                             }
-
                         }
                     } else {
                         Row(
@@ -84,7 +82,7 @@ class MainActivity : ComponentActivity() {
                             )
                             Button(onClick = {
                                 if (inputText.isNotBlank()) {
-                                    //zde volat encrypt funkcu
+                                    //zde volat encrypt funkci
                                     btController.sendMessage(inputText)
                                     inputText = ""
                                 }
@@ -104,6 +102,9 @@ class MainActivity : ComponentActivity() {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text("✓ Connected", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                                 Text("Device: $connectedDeviceName", style = MaterialTheme.typography.bodyMedium)
+                                if (currentRoomId != null) {
+                                    Text("Room ID: $currentRoomId", style = MaterialTheme.typography.bodyMedium)
+                                }
                                 Text("Status: ${if (btController.verifyConnection()) "✓ Verified" else "✗ Lost"}", style = MaterialTheme.typography.bodySmall)
                             }
                         }
@@ -115,10 +116,15 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     } else {
-                        Text("Status: ${if (isServer) "Server Waiting..." else "Idle"}", style = MaterialTheme.typography.titleMedium)
+                        val statusText = when {
+                            isServer && currentRoomId != null -> "Server Waiting (Room: $currentRoomId)..."
+                            isServer -> "Server Waiting..."
+                            else -> "Idle"
+                        }
+                        Text("Status: $statusText", style = MaterialTheme.typography.titleMedium)
                         Spacer(Modifier.height(16.dp))
                         if (scannedDevices.isNotEmpty()) {
-                            Text("Available Devices (${scannedDevices.size})", style = MaterialTheme.typography.titleMedium)
+                            Text("Available Rooms (${scannedDevices.size})", style = MaterialTheme.typography.titleMedium)
                             LazyColumn(modifier = Modifier.weight(1f)) {
                                 items(scannedDevices) { device ->
                                     Row(
@@ -129,6 +135,9 @@ class MainActivity : ComponentActivity() {
                                     ) {
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(device.name ?: "Unknown")
+                                            if (device.roomId != null) {
+                                                Text("Room: ${device.roomId}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                                            }
                                             Text(device.address, style = MaterialTheme.typography.bodySmall)
                                         }
                                         Button(onClick = {

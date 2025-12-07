@@ -16,47 +16,56 @@ class BluetoothConnectionManager(
     private val onConnected: (BluetoothSocket, String) -> Unit,
     private val onError: (String) -> Unit
 ) {
-    companion object {
-        const val UUID_STRING = "00001101-0000-1000-8000-00805F9B34FB"
-        
-        const val TAG = "BluetoothConnMgr"
-    }
-
     private var serverSocket: BluetoothServerSocket? = null
     var socket: BluetoothSocket? = null
+    private var originalDeviceName: String? = null
+    private var currentRoomId: String? = null
 
-    fun startServer() {
-        Log.d(TAG, "Starting server...")
+    fun startServer(roomId: String) {
+        currentRoomId = roomId
+        Log.d(BluetoothConstants.TAG_CONNECTION, "Starting server with room ID: $roomId")
+
+        // Ulož původní název a změň ho
+        originalDeviceName = bluetoothAdapter?.name
+        val newName = "${BluetoothConstants.APP_IDENTIFIER}_${roomId}"
+        bluetoothAdapter?.setName(newName)
+        Log.d(BluetoothConstants.TAG_CONNECTION, "Device name changed from '$originalDeviceName' to '$newName'")
+
         Thread {
             try {
-                serverSocket = bluetoothAdapter?.listenUsingRfcommWithServiceRecord("RyuP2P", UUID.fromString(UUID_STRING))
-                Log.d(TAG, "Server socket created, waiting for connection...")
+                serverSocket = bluetoothAdapter?.listenUsingRfcommWithServiceRecord(
+                    BluetoothConstants.APP_IDENTIFIER,
+                    UUID.fromString(BluetoothConstants.UUID_STRING)
+                )
+                Log.d(BluetoothConstants.TAG_CONNECTION, "Server socket created, waiting for connection...")
+
                 socket = serverSocket?.accept()
                 if (socket != null) {
-                    Log.d(TAG, "Client connected: ${socket!!.remoteDevice.name}")
+                    Log.d(BluetoothConstants.TAG_CONNECTION, "Client connected: ${socket!!.remoteDevice.name}")
                     onConnected(socket!!, socket!!.remoteDevice.name ?: "Unknown")
                 }
             } catch (e: IOException) {
-                Log.e(TAG, "Server error: ${e.message}", e)
+                Log.e(BluetoothConstants.TAG_CONNECTION, "Server error: ${e.message}", e)
                 onError("Server: ${e.message}")
             }
         }.start()
     }
 
     suspend fun connectAsClient(device: android.bluetooth.BluetoothDevice) {
-        Log.d(TAG, "Connecting to client: ${device.name}")
+        Log.d(BluetoothConstants.TAG_CONNECTION, "Connecting to client: ${device.name}")
         withContext(Dispatchers.IO) {
             try {
                 bluetoothAdapter?.cancelDiscovery()
-                socket = device.createRfcommSocketToServiceRecord(UUID.fromString(UUID_STRING))
-                Log.d(TAG, "Socket created, connecting...")
+                socket = device.createRfcommSocketToServiceRecord(UUID.fromString(BluetoothConstants.UUID_STRING))
+                Log.d(BluetoothConstants.TAG_CONNECTION, "Socket created, connecting...")
                 socket?.connect()
-                Log.d(TAG, "Connected! Socket status: ${socket?.isConnected}")
+                Log.d(BluetoothConstants.TAG_CONNECTION, "Connected! Socket status: ${socket?.isConnected}")
+
                 if (socket != null) {
                     onConnected(socket!!, device.name ?: "Unknown")
                 }
             } catch (e: IOException) {
-                Log.e(TAG, "Connect error: ${e.message}", e)
+                Log.e(BluetoothConstants.TAG_CONNECTION, "Connect error: ${e.message}", e)
                 socket?.close()
                 onError("Connect: ${e.message}")
             }
@@ -68,9 +77,9 @@ class BluetoothConnectionManager(
             val bytes = (message + "\n").toByteArray(Charsets.UTF_8)
             socket?.outputStream?.write(bytes)
             socket?.outputStream?.flush()
-            Log.d(TAG, "Sent: $message")
+            Log.d(BluetoothConstants.TAG_CONNECTION, "Sent: $message")
         } catch (e: IOException) {
-            Log.e(TAG, "Send error: ${e.message}")
+            Log.e(BluetoothConstants.TAG_CONNECTION, "Send error: ${e.message}")
         }
     }
 
@@ -81,21 +90,21 @@ class BluetoothConnectionManager(
             val bytes = inputStream.read(buffer)
             if (bytes > 0) {
                 val message = String(buffer, 0, bytes, Charsets.UTF_8).trim()
-                Log.d(TAG, "Received: $message")
+                Log.d(BluetoothConstants.TAG_CONNECTION, "Received: $message")
                 //here decypher function
                 message
             } else {
                 null
             }
         } catch (e: IOException) {
-            Log.e(TAG, "Read error: ${e.message}")
+            Log.e(BluetoothConstants.TAG_CONNECTION, "Read error: ${e.message}")
             null
         }
     }
 
     fun verifyConnection(): Boolean {
         val isConn = socket?.isConnected == true
-        Log.d(TAG, "Verify connection: $isConn")
+        Log.d(BluetoothConstants.TAG_CONNECTION, "Verify connection: $isConn")
         return isConn
     }
 
@@ -103,9 +112,19 @@ class BluetoothConnectionManager(
         try {
             serverSocket?.close()
             socket?.close()
-            Log.d(TAG, "Connection closed")
+
+            // Obnov původní název zařízení
+            if (originalDeviceName != null) {
+                bluetoothAdapter?.setName(originalDeviceName)
+                Log.d(BluetoothConstants.TAG_CONNECTION, "Device name restored to: $originalDeviceName")
+            }
+
+            Log.d(BluetoothConstants.TAG_CONNECTION, "Connection closed")
         } catch (e: IOException) {
-            Log.e(TAG, "Close error", e)
+            Log.e(BluetoothConstants.TAG_CONNECTION, "Close error", e)
         }
     }
+
+    fun getRoomId(): String? = currentRoomId
 }
+
