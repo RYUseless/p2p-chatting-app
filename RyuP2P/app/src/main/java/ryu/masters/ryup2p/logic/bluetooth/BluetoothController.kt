@@ -13,6 +13,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.*
+import ryu.masters.ryup2p.logic.cryptUtils.MessageCryptoUtils
 import java.util.UUID
 
 @SuppressLint("MissingPermission")
@@ -40,6 +41,12 @@ class BluetoothController(private val context: Context) {
     private val _currentRoomId = MutableStateFlow<String?>(null)
     val currentRoomId: StateFlow<String?> = _currentRoomId
 
+    private val _needsPassword = MutableStateFlow(false)
+    val needsPassword: StateFlow<Boolean> = _needsPassword
+
+    private val _passwordError = MutableStateFlow<String?>(null)
+    val passwordError: StateFlow<String?> = _passwordError
+
     private var connectionManager: BluetoothConnectionManager? = null
     private var receiverRegistered = false
     private var readThread: Thread? = null
@@ -48,6 +55,9 @@ class BluetoothController(private val context: Context) {
 
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching
+
+    private var cryptoUtils: MessageCryptoUtils? = null
+    private var pendingKeyExchangeData: String? = null
 
     private val receiver = object : BroadcastReceiver() {
         @SuppressLint("MissingPermission")
@@ -63,21 +73,16 @@ class BluetoothController(private val context: Context) {
 
                     device?.let {
                         Log.d(BluetoothConstants.TAG_CONTROLLER, "Found device: ${it.name} (${it.address})")
-
-                        // Filtruj pouze zařízení s aplikací
                         val deviceName = it.name
                         if (deviceName != null && deviceName.startsWith(BluetoothConstants.APP_IDENTIFIER)) {
-                            // Extrahuj room ID z názvu
                             val roomId = extractRoomIdFromName(deviceName)
                             Log.d(BluetoothConstants.TAG_CONTROLLER, "Found RyuP2P device with room: $roomId")
-
                             val btDevice = BluetoothDevice(
                                 name = deviceName,
                                 address = it.address,
                                 roomId = roomId
                             )
 
-                            // Přidej pokud ještě není v seznamu
                             if (!_scannedDevices.value.any { d -> d.address == btDevice.address }) {
                                 _scannedDevices.value = _scannedDevices.value + btDevice
                                 Log.d(BluetoothConstants.TAG_CONTROLLER, "Added device to list: ${btDevice.name}")
@@ -92,7 +97,6 @@ class BluetoothController(private val context: Context) {
     }
 
     private fun extractRoomIdFromName(deviceName: String): String? {
-        // Název je ve formátu "RyuP2P_<roomId>"
         return if (deviceName.startsWith("${BluetoothConstants.APP_IDENTIFIER}_")) {
             deviceName.removePrefix("${BluetoothConstants.APP_IDENTIFIER}_")
         } else {
@@ -100,10 +104,25 @@ class BluetoothController(private val context: Context) {
         }
     }
 
-    fun startServer(roomId: String = generateRoomId()) {
+    fun startServer() {
+        _needsPassword.value = true
+        _isServer.value = true
+    }
+
+    fun submitServerPassword(password: String) {
+        if (password.isEmpty()) {
+            _passwordError.value = "Password cannot be empty"
+            return
+        }
+
+        val roomId = generateRoomId()
         Log.d(BluetoothConstants.TAG_CONTROLLER, "Creating room with ID: $roomId")
         _currentRoomId.value = roomId
-        _isServer.value = true
+        _needsPassword.value = false
+        _passwordError.value = null
+
+        cryptoUtils = MessageCryptoUtils(context, roomId)
+        val keyExchangeData = cryptoUtils!!.initializeAsServer(password)
 
         connectionManager = BluetoothConnectionManager(
             bluetoothAdapter,
@@ -111,6 +130,9 @@ class BluetoothController(private val context: Context) {
                 Log.d(BluetoothConstants.TAG_CONTROLLER, "Server: connected to $remoteName in room $roomId")
                 _isConnected.value = true
                 _connectedDeviceName.value = remoteName
+
+                connectionManager?.sendMessage("KEY_EXCHANGE:$keyExchangeData")
+
                 startReadThread()
             },
             onError = { err -> Log.e(BluetoothConstants.TAG_CONTROLLER, "Server error: $err") }
@@ -125,12 +147,11 @@ class BluetoothController(private val context: Context) {
         discoveryTimeoutJob?.cancel()
         _isServer.value = false
         _scannedDevices.value = emptyList()
-
         updatePairedDevices()
         bluetoothAdapter?.startDiscovery()
         registerReceiver()
-
         _isSearching.value = true
+
         discoveryTimeoutJob = coroutineScope.launch {
             delay(30_000)
             bluetoothAdapter?.cancelDiscovery()
@@ -174,20 +195,61 @@ class BluetoothController(private val context: Context) {
         }
     }
 
+    fun submitClientPassword(password: String) {
+        if (password.isEmpty()) {
+            _passwordError.value = "Password cannot be empty"
+            return
+        }
+
+        val roomId = _currentRoomId.value ?: return
+        val keyData = pendingKeyExchangeData ?: return
+
+        cryptoUtils = MessageCryptoUtils(context, roomId)
+        val success = cryptoUtils!!.initializeAsClient(keyData, password)
+
+        if (success) {
+            _needsPassword.value = false
+            _passwordError.value = null
+        } else {
+            _passwordError.value = "Incorrect password"
+        }
+    }
+
     fun sendMessage(text: String) {
-        connectionManager?.sendMessage(text)
+        val encrypted = cryptoUtils?.encrypt(text)
+        if (encrypted != null) {
+            connectionManager?.sendMessage("MSG:$encrypted")
+        } else {
+            connectionManager?.sendMessage(text)
+        }
         _messages.value = _messages.value + ("You: $text")
     }
 
     private fun startReadThread() {
         if (readThread != null) return
+
         readThread = Thread {
             Log.d(BluetoothConstants.TAG_CONTROLLER, "Read thread started")
             while (_isConnected.value && connectionManager?.socket?.isConnected == true) {
                 try {
                     val message = connectionManager?.readMessage()
                     if (message != null) {
-                        _messages.value = _messages.value + ("Remote: $message")
+                        when {
+                            message.startsWith("KEY_EXCHANGE:") -> {
+                                pendingKeyExchangeData = message.removePrefix("KEY_EXCHANGE:")
+                                coroutineScope.launch(Dispatchers.Main) {
+                                    _needsPassword.value = true
+                                }
+                            }
+                            message.startsWith("MSG:") -> {
+                                val encryptedMsg = message.removePrefix("MSG:")
+                                val decrypted = cryptoUtils?.decrypt(encryptedMsg) ?: encryptedMsg
+                                _messages.value = _messages.value + ("Remote: $decrypted")
+                            }
+                            else -> {
+                                _messages.value = _messages.value + ("Remote: $message")
+                            }
+                        }
                     }
                     Thread.sleep(100)
                 } catch (e: Exception) {
@@ -197,6 +259,7 @@ class BluetoothController(private val context: Context) {
             }
             Log.d(BluetoothConstants.TAG_CONTROLLER, "Read thread ended")
         }
+
         readThread?.start()
     }
 
@@ -243,6 +306,7 @@ class BluetoothController(private val context: Context) {
         return UUID.randomUUID().toString().substring(0, 8)
     }
 }
+
 
 
 

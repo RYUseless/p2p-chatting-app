@@ -12,7 +12,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.launch
 import ryu.masters.ryup2p.logic.bluetooth.BluetoothController
 
@@ -38,9 +40,31 @@ class MainActivity : ComponentActivity() {
             val isServer by btController.isServer.collectAsState()
             val messages by btController.messages.collectAsState()
             val currentRoomId by btController.currentRoomId.collectAsState()
+            val needsPassword by btController.needsPassword.collectAsState()
+            val passwordError by btController.passwordError.collectAsState()
             val scope = rememberCoroutineScope()
+
             var inputText by remember { mutableStateOf("") }
             val isSearching by btController.isSearching.collectAsState()
+
+            // Password dialog - shows for both server (create) and client (unlock)
+            if (needsPassword) {
+                PasswordDialog(
+                    isServer = isServer,
+                    isConnected = isConnected,
+                    error = passwordError,
+                    onPasswordSubmit = { password ->
+                        if (isServer && !isConnected) {
+                            // Server creating room with password
+                            btController.submitServerPassword(password)
+                        } else {
+                            // Client unlocking room with password
+                            btController.submitClientPassword(password)
+                        }
+                    },
+                    onDismiss = { /* Cannot dismiss - must enter password */ }
+                )
+            }
 
             Scaffold(
                 bottomBar = {
@@ -52,14 +76,15 @@ class MainActivity : ComponentActivity() {
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Button(
-                                enabled = !isServer,
+                                enabled = !isServer && !needsPassword,
                                 onClick = { btController.startServer() },
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Text("Create Room")
                             }
+
                             Button(
-                                enabled = !isServer && !isSearching,
+                                enabled = !isServer && !isSearching && !needsPassword,
                                 onClick = { btController.startClientMode() },
                                 modifier = Modifier.weight(1f)
                             ) {
@@ -78,15 +103,19 @@ class MainActivity : ComponentActivity() {
                                 value = inputText,
                                 onValueChange = { inputText = it },
                                 modifier = Modifier.weight(1f),
-                                placeholder = { Text("Message...") }
+                                placeholder = { Text("Message...") },
+                                enabled = !needsPassword
                             )
-                            Button(onClick = {
-                                if (inputText.isNotBlank()) {
-                                    //zde volat encrypt funkci
-                                    btController.sendMessage(inputText)
-                                    inputText = ""
-                                }
-                            }) { Text("Send") }
+
+                            Button(
+                                onClick = {
+                                    if (inputText.isNotBlank()) {
+                                        btController.sendMessage(inputText)
+                                        inputText = ""
+                                    }
+                                },
+                                enabled = !needsPassword
+                            ) { Text("Send") }
                         }
                     }
                 }
@@ -105,11 +134,22 @@ class MainActivity : ComponentActivity() {
                                 if (currentRoomId != null) {
                                     Text("Room ID: $currentRoomId", style = MaterialTheme.typography.bodyMedium)
                                 }
+                                if (needsPassword) {
+                                    Text("🔒 Locked - Enter password to decrypt", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                                } else {
+                                    Text("🔓 Unlocked - Messages encrypted", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                                }
                                 Text("Status: ${if (btController.verifyConnection()) "✓ Verified" else "✗ Lost"}", style = MaterialTheme.typography.bodySmall)
                             }
                         }
+
                         Spacer(Modifier.height(12.dp))
                         Text("Messages (${messages.size})", style = MaterialTheme.typography.titleMedium)
+
+                        if (needsPassword) {
+                            Text("Enter password to view messages", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                        }
+
                         LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
                             items(messages) { msg ->
                                 Text(msg, modifier = Modifier.padding(4.dp), style = MaterialTheme.typography.bodySmall)
@@ -118,11 +158,14 @@ class MainActivity : ComponentActivity() {
                     } else {
                         val statusText = when {
                             isServer && currentRoomId != null -> "Server Waiting (Room: $currentRoomId)..."
+                            isServer && needsPassword -> "Creating room..."
                             isServer -> "Server Waiting..."
                             else -> "Idle"
                         }
+
                         Text("Status: $statusText", style = MaterialTheme.typography.titleMedium)
                         Spacer(Modifier.height(16.dp))
+
                         if (scannedDevices.isNotEmpty()) {
                             Text("Available Rooms (${scannedDevices.size})", style = MaterialTheme.typography.titleMedium)
                             LazyColumn(modifier = Modifier.weight(1f)) {
@@ -140,6 +183,7 @@ class MainActivity : ComponentActivity() {
                                             }
                                             Text(device.address, style = MaterialTheme.typography.bodySmall)
                                         }
+
                                         Button(onClick = {
                                             scope.launch {
                                                 btController.connectToDevice(device)
@@ -156,4 +200,79 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@Composable
+fun PasswordDialog(
+    isServer: Boolean,
+    isConnected: Boolean,
+    error: String?,
+    onPasswordSubmit: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var password by remember { mutableStateOf("") }
+
+    // Determine dialog type based on state
+    val dialogTitle = when {
+        isServer && !isConnected -> "Create Room Password"
+        else -> "Unlock Room"
+    }
+
+    val dialogDescription = when {
+        isServer && !isConnected -> "Set a password to encrypt messages in this room. Share this password with people you want to connect."
+        else -> "Enter the room password to decrypt messages"
+    }
+
+    val buttonText = when {
+        isServer && !isConnected -> "Create Room"
+        else -> "Unlock Room"
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = dialogTitle,
+                    style = MaterialTheme.typography.titleLarge
+                )
+
+                Text(
+                    text = dialogDescription,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                TextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Password") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    isError = error != null,
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                if (error != null) {
+                    Text(
+                        text = error,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                Button(
+                    onClick = {
+                        if (password.isNotEmpty()) {
+                            onPasswordSubmit(password)
+                        }
+                    },
+                    enabled = password.isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(buttonText)
+                }
+            }
+        }
+    }
+}
 
