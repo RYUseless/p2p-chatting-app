@@ -84,11 +84,11 @@ class BluetoothController(private val context: Context) {
                             )
 
                             if (!_scannedDevices.value.any { d -> d.address == btDevice.address }) {
-                                _scannedDevices.value = _scannedDevices.value + btDevice
+                                _scannedDevices.value += btDevice
                                 Log.d(BluetoothConstants.TAG_CONTROLLER, "Added device to list: ${btDevice.name}")
                             }
                         } else {
-                            Log.d(BluetoothConstants.TAG_CONTROLLER, "Skipping device (not RyuP2P): ${deviceName}")
+                            Log.d(BluetoothConstants.TAG_CONTROLLER, "Skipping device (not RyuP2P): $deviceName")
                         }
                     }
                 }
@@ -125,6 +125,7 @@ class BluetoothController(private val context: Context) {
         val keyExchangeData = cryptoUtils!!.initializeAsServer(password)
 
         connectionManager = BluetoothConnectionManager(
+            context,
             bluetoothAdapter,
             onConnected = { _, remoteName ->
                 Log.d(BluetoothConstants.TAG_CONTROLLER, "Server: connected to $remoteName in room $roomId")
@@ -175,6 +176,7 @@ class BluetoothController(private val context: Context) {
         if (connectionManager == null) {
             Log.d(BluetoothConstants.TAG_CONTROLLER, "Creating new connection manager")
             connectionManager = BluetoothConnectionManager(
+                context,
                 bluetoothAdapter,
                 onConnected = { _, remoteName ->
                     Log.d(BluetoothConstants.TAG_CONTROLLER, "Client: connected to $remoteName")
@@ -305,6 +307,7 @@ class BluetoothController(private val context: Context) {
     private fun generateRoomId(): String {
         return UUID.randomUUID().toString().substring(0, 8)
     }
+
 }
 
 

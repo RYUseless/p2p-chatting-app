@@ -1,7 +1,15 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
+    //alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_11)
+    }
 }
 
 android {
@@ -33,9 +41,9 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
-    }
+    //kotlinOptions {
+    //    jvmTarget = "11"
+    //}
     buildFeatures {
         compose = true
     }
@@ -57,4 +65,12 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    // qrcode
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+    //moduly pro nacitani qr codu
+    implementation("androidx.camera:camera-core:1.4.0")
+    implementation("androidx.camera:camera-camera2:1.4.0")
+    implementation("androidx.camera:camera-lifecycle:1.4.0")
+    implementation("androidx.camera:camera-view:1.4.0")
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
 }

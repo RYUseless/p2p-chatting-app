@@ -1,6 +1,7 @@
 package ryu.masters.ryup2p
 
 import android.Manifest
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -16,6 +17,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.launch
+import ryu.masters.ryup2p.logic.bluetooth.BluetoothCleanupService
 import ryu.masters.ryup2p.logic.bluetooth.BluetoothController
 
 class MainActivity : ComponentActivity() {
@@ -46,6 +48,16 @@ class MainActivity : ComponentActivity() {
 
             var inputText by remember { mutableStateOf("") }
             val isSearching by btController.isSearching.collectAsState()
+
+            // if swipe away
+            // cursed, maybe remove
+            DisposableEffect(Unit) {
+                val serviceIntent = Intent(this@MainActivity, BluetoothCleanupService::class.java)
+                startForegroundService(serviceIntent)
+                onDispose {
+                    // Nic - service se zastaví při swipe away
+                }
+            }
 
             // Password dialog - shows for both server (create) and client (unlock)
             if (needsPassword) {

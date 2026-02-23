@@ -4,14 +4,17 @@ import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothServerSocket
 import android.bluetooth.BluetoothSocket
+import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.util.UUID
+import androidx.core.content.edit
 
 @SuppressLint("MissingPermission")
 class BluetoothConnectionManager(
+    private val context: Context,
     private val bluetoothAdapter: BluetoothAdapter?,
     private val onConnected: (BluetoothSocket, String) -> Unit,
     private val onError: (String) -> Unit
@@ -25,13 +28,23 @@ class BluetoothConnectionManager(
         currentRoomId = roomId
         Log.d(BluetoothConstants.TAG_CONNECTION, "Starting server with room ID: $roomId")
 
-        // Ulož původní název a změň ho
         originalDeviceName = bluetoothAdapter?.name
+
+        val prefs = context.getSharedPreferences("bluetooth_state", Context.MODE_PRIVATE)
+        prefs.edit { putString("original_bt_name", originalDeviceName) }
+        Log.d(BluetoothConstants.TAG_CONNECTION, "Saved original name to SharedPreferences: $originalDeviceName")
+
         val newName = "${BluetoothConstants.APP_IDENTIFIER}_${roomId}"
         bluetoothAdapter?.setName(newName)
         Log.d(BluetoothConstants.TAG_CONNECTION, "Device name changed from '$originalDeviceName' to '$newName'")
 
+        BluetoothCleanupService.originalDeviceName = originalDeviceName
+        BluetoothCleanupService.bluetoothAdapter = bluetoothAdapter
+
         Thread {
+            val startTime = System.currentTimeMillis()
+            val timeout = 300_000L
+
             try {
                 serverSocket = bluetoothAdapter?.listenUsingRfcommWithServiceRecord(
                     BluetoothConstants.APP_IDENTIFIER,
@@ -40,16 +53,28 @@ class BluetoothConnectionManager(
                 Log.d(BluetoothConstants.TAG_CONNECTION, "Server socket created, waiting for connection...")
 
                 socket = serverSocket?.accept()
+
+                val elapsed = System.currentTimeMillis() - startTime
+                if (elapsed >= timeout) {
+                    Log.e(BluetoothConstants.TAG_CONNECTION, "Server timeout after 300s")
+                    closeConnection()
+                    onError("Timeout: No client connected in 300s")
+                    return@Thread
+                }
+
                 if (socket != null) {
                     Log.d(BluetoothConstants.TAG_CONNECTION, "Client connected: ${socket!!.remoteDevice.name}")
                     onConnected(socket!!, socket!!.remoteDevice.name ?: "Unknown")
                 }
+
             } catch (e: IOException) {
                 Log.e(BluetoothConstants.TAG_CONNECTION, "Server error: ${e.message}", e)
+                closeConnection()
                 onError("Server: ${e.message}")
             }
         }.start()
     }
+
 
     suspend fun connectAsClient(device: android.bluetooth.BluetoothDevice) {
         Log.d(BluetoothConstants.TAG_CONNECTION, "Connecting to client: ${device.name}")
@@ -113,10 +138,14 @@ class BluetoothConnectionManager(
             serverSocket?.close()
             socket?.close()
 
-            // Obnov původní název zařízení
-            if (originalDeviceName != null) {
-                bluetoothAdapter?.setName(originalDeviceName)
-                Log.d(BluetoothConstants.TAG_CONNECTION, "Device name restored to: $originalDeviceName")
+            val prefs = context.getSharedPreferences("bluetooth_state", Context.MODE_PRIVATE)
+            val savedName = originalDeviceName ?: prefs.getString("original_bt_name", null)
+
+            if (savedName != null) {
+                bluetoothAdapter?.setName(savedName)
+                Log.d(BluetoothConstants.TAG_CONNECTION, "Device name restored to: $savedName")
+
+                prefs.edit { remove("original_bt_name") }
             }
 
             Log.d(BluetoothConstants.TAG_CONNECTION, "Connection closed")
@@ -125,6 +154,8 @@ class BluetoothConnectionManager(
         }
     }
 
-    fun getRoomId(): String? = currentRoomId
+
+    //fun getRoomId(): String? = currentRoomId
 }
+
 
