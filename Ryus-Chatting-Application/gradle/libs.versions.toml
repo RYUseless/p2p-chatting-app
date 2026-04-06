@@ -7,12 +7,13 @@ espressoCore = "3.5.1"
 lifecycleRuntimeKtx = "2.6.1"
 activityCompose = "1.13.0"
 kotlin = "2.2.10"
-composeBom = "2024.09.00"
+composeBom = "2025.01.01"
 zxingAndroidEmbedded = "4.3.0"
 # ryu importíci:
 androidxCamera = "1.6.0"
 mlkitBarcodeScanning = "17.3.0"
 navigation = "2.7.7"
+foundation = "1.10.4"
 
 
 
@@ -40,6 +41,7 @@ androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycl
 androidx-camera-view     = { group = "androidx.camera", name = "camera-view",      version.ref = "androidxCamera" }
 mlkit-barcode-scanning   = { group = "com.google.mlkit", name = "barcode-scanning", version.ref = "mlkitBarcodeScanning" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation" }
+androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

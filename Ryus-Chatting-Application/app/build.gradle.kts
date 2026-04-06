@@ -64,5 +64,9 @@ dependencies {
     implementation(libs.androidx.camera.view)
     implementation(libs.mlkit.barcode.scanning)
     implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.foundation)
+    // this hardcoded, kvůli implementaci nových věci v AppNavGraph.kt
+    implementation("androidx.navigation:navigation-compose:2.9.7")
 }

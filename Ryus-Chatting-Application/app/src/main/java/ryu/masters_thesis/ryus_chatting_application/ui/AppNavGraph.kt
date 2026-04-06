@@ -10,7 +10,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 //import androidx.compose.animation.slideInHorizontally
 //import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.AnchoredDraggableState
 import androidx.compose.foundation.gestures.DraggableAnchors
@@ -190,7 +189,6 @@ fun AppNavGraph(
 
 enum class DismissValue { Center, DismissedLeft, DismissedRight }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SwipeableDismissDialog(
     onDismiss: () -> Unit,
