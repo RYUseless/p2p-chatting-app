@@ -48,6 +48,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".logic.bluetooth.BluetoothCleanupService"
+            android:foregroundServiceType="connectedDevice"
+            android:exported="false" />
+
     </application>
 
 </manifest>
