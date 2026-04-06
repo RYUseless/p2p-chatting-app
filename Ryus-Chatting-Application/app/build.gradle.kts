@@ -64,4 +64,5 @@ dependencies {
     implementation(libs.androidx.camera.view)
     implementation(libs.mlkit.barcode.scanning)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.navigation.compose)
 }

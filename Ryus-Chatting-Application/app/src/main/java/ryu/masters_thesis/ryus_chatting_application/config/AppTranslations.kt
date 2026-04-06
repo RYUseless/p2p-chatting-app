@@ -1,0 +1,131 @@
+package ryu.masters_thesis.ryus_chatting_application.config
+
+data class AppTranslations(
+    // obecné
+    val close: String,
+
+    // ConnectScreen:
+    val connectTitle: String,
+    val createTitle: String,
+    val connectNoRooms: String,
+    val connectAvailableRooms: String,
+    val connectTimeRemaining: String,
+    // StartScreen:
+    val savedChats: String,
+    val noChatsAvailable: String,
+    val buttonConnect: String,
+    val buttonCreate: String,
+    // SettingsScreen:
+    val settingsTitle: String,
+    val settingsLanguageLabel: String,
+    val settingsThemeLabel: String,
+    val settingsPostQuantumLabel: String,
+    val settingsCryptoLabel: String,
+    val settingsBluetoothIdentityLabel: String,
+    val settingsDeviceNameLabel: String,
+    val settingsConnectionTimeoutLabel: String,
+    val settingsMaxPeersLabel: String,
+    val createRoomName: String,
+    var createRoomQR: String,
+    // CreateScreen:
+    // sem se musi pridat jakakoliv value s typem cotoe, nez se prida dal na preklad
+)
+
+val TranslationsMap = mapOf(
+    AppLanguage.ENGLISH to AppTranslations(
+        close                          = "Close",
+        connectTitle                   = "Searching for ChatRooms",
+        createTitle                    = "Chatroom Name:",
+        connectNoRooms                 = "No available rooms yet...",
+        connectAvailableRooms          = "Available %d rooms",
+        connectTimeRemaining           = "Time left %d",
+        savedChats                     = "Saved Chats ▶",
+        noChatsAvailable               = "No chats available",
+        buttonConnect                  = "Connect",
+        buttonCreate                   = "Create",
+        settingsTitle                  = "Settings",
+        settingsLanguageLabel          = "Display language:",
+        settingsThemeLabel             = "Theme:",
+        settingsPostQuantumLabel       = "Post-quantum ready:",
+        settingsCryptoLabel            = "Crypto algorithm:",
+        settingsBluetoothIdentityLabel = "Bluetooth identity:",
+        settingsDeviceNameLabel        = "Device name:",
+        settingsConnectionTimeoutLabel = "Connection timeout (s):",
+        settingsMaxPeersLabel          = "Max peers:",
+        createRoomName                 = "Room Name",
+        createRoomQR                   = "QR code for the room"
+    ),
+    AppLanguage.CZECH to AppTranslations(
+        close                          = "Zavřít",
+        connectTitle                   = "Hledání dostupných místností",
+        createTitle                    = "Jméno místnosti:",
+        connectNoRooms                 = "Zatím žádné místnosti...",
+        connectAvailableRooms          = "Dostupné místnosti: %d",
+        connectTimeRemaining           = "Zbývající čas %d",
+        savedChats                     = "Uložené chaty ▶",
+        noChatsAvailable               = "Žádné chaty",
+        buttonConnect                  = "Připojit",
+        buttonCreate                   = "Vytvořit",
+        settingsTitle                  = "Nastavení",
+        settingsLanguageLabel          = "Jazyk zobrazení:",
+        settingsThemeLabel             = "Téma:",
+        settingsPostQuantumLabel       = "Post-kvantová připravenost:",
+        settingsCryptoLabel            = "Kryptografický algoritmus:",
+        settingsBluetoothIdentityLabel = "Bluetooth identita:",
+        settingsDeviceNameLabel        = "Název zařízení:",
+        settingsConnectionTimeoutLabel = "Timeout připojení (s):",
+        settingsMaxPeersLabel          = "Max. peers:",
+        createRoomName                 = "Pojmenování chatu: ",
+        createRoomQR                   =  "QR kód pro místnost"
+
+    ),
+    AppLanguage.GERMAN to AppTranslations(
+        close                          = "Schließen",
+        connectTitle                   = "Suche nach ChatRooms",
+        createTitle                    = "todo, němčina",
+        connectNoRooms                 = "Noch keine Räume verfügbar...",
+        connectAvailableRooms          = "Verfügbare Räume: %d",
+        connectTimeRemaining           = "Německý překlad lel: %d",
+        savedChats                     = "Gespeicherte Chats ▶",
+        noChatsAvailable               = "Keine Chats verfügbar",
+        buttonConnect                  = "Verbinden",
+        buttonCreate                   = "Erstellen",
+        settingsTitle                  = "Einstellungen",
+        settingsLanguageLabel          = "Hitlerština:",
+        settingsThemeLabel             = "Design:",
+        settingsPostQuantumLabel       = "Post-Quanten-bereit:",
+        settingsCryptoLabel            = "Krypto-Algorithmus:",
+        settingsBluetoothIdentityLabel = "Bluetooth-Identität:",
+        settingsDeviceNameLabel        = "Gerätename:",
+        settingsConnectionTimeoutLabel = "Verbindungs-Timeout (s):",
+        settingsMaxPeersLabel          = "Max. Peers:",
+        createRoomName                 = "todo, name: ",
+        createRoomQR                   = "todo,qr"
+    ),
+    AppLanguage.POLISH to AppTranslations(
+        close                          = "Zamknij",
+        connectTitle                   = "Wyszukiwanie pokojów czatu",
+        createTitle                    = "todo, polski",
+        connectNoRooms                 = "Brak dostępnych pokojów...",
+        connectAvailableRooms          = "Dostępne pokoje: %d",
+        connectTimeRemaining           = "Pozostały czas: %d",
+        savedChats                     = "Zapisane czaty ▶",
+        noChatsAvailable               = "Brak dostępnych czatów",
+        buttonConnect                  = "Połącz",
+        buttonCreate                   = "Utwórz",
+        settingsTitle                  = "Ustawienia",
+        settingsLanguageLabel          = "Język:",
+        settingsThemeLabel             = "Motyw:",
+        settingsPostQuantumLabel       = "Post-kwantowy:",
+        settingsCryptoLabel            = "Algorytm kryptograficzny:",
+        settingsBluetoothIdentityLabel = "Tożsamość Bluetooth:",
+        settingsDeviceNameLabel        = "Nazwa urządzenia:",
+        settingsConnectionTimeoutLabel = "Limit czasu połączenia (s):",
+        settingsMaxPeersLabel          = "Maks. węzłów:",
+        createRoomName                 = "todo, nazwa: ",
+        createRoomQR                   = "todo, qr"
+    )
+)
+
+fun getTranslations(language: AppLanguage): AppTranslations =
+    TranslationsMap[language] ?: TranslationsMap[AppLanguage.ENGLISH]!!
