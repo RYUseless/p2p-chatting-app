@@ -104,6 +104,14 @@ class BluetoothController(private val context: Context) {
         }
     }
 
+    // Volano primo z CreateScreen.kt
+    // rn bypassuje needspassword dialog
+    fun createRoomFromCreateScreen(password: String): String? {
+        _isServer.value = true
+        submitServerPassword(password)
+        return _currentRoomId.value
+    }
+
     fun startServer() {
         _needsPassword.value = true
         _isServer.value = true

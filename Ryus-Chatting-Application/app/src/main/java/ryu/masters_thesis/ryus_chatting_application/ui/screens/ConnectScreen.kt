@@ -53,14 +53,10 @@ fun ConnectScreen(
         contentColor = if (isDark) Color.Black else Color.White
     )
 
-    val dummyDevices = remember {
-        listOf(
-            //TODO: remove when migrating back BT backend
-            FoundRoom("default_name", "AA:BB:CC:DD:EE:01", "heslo123"),
-            FoundRoom("Sex", "AA:BB:CC:DD:EE:02", "heslo123"),
-            FoundRoom("default_name", "AA:BB:CC:DD:EE:03", "heslo123"),
-        )
-    }
+    //dummydevices → nalezene roomky v okoli
+    // default name, adresa serveru chatu, aka kdo to naposledy hostoval, heslo(zasifrovat)
+    val dummyDevices = remember { mutableStateListOf<FoundRoom>() }
+
 
     var selectedRoom by remember { mutableStateOf<FoundRoom?>(null) }
 
@@ -172,8 +168,6 @@ fun JoinRoomDialog(
     ) { granted ->
         if (granted) showQrScanner = true
     }
-
-
 
 
     Dialog(onDismissRequest = onDismiss) {

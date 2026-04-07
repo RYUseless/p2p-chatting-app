@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,26 +49,9 @@ fun StartScreen(
     //val settings = remember { AppSettings() }
     val strings  = getTranslations(settings.language)
 
-    val chatRooms = remember {
-        listOf(
-            //TODO: remove when BT backend implemented
-            ChatRoom("SchizoRoom", true),
-            ChatRoom("OF_LEAKED", false),
-            ChatRoom("Friends", true),
-            ChatRoom("Music", true),
-            ChatRoom("VUTFEKT", false),
-            ChatRoom("efsdf", true),
-            ChatRoom("Default_Name", false),
-            ChatRoom("Jiří", true),
-            ChatRoom("UrGent", true),
-            ChatRoom("0340", false),
-            ChatRoom("Grbelnelgen", true),
-            ChatRoom("rugmusaACK", false),
-            ChatRoom("HRBN", true),
-            ChatRoom("sad", false),
-            ChatRoom("asdadasd", true)
-        )
-    }
+    // promenna pro ulozene chatroomy
+    val chatRooms = remember { mutableStateListOf<ChatRoom>() }
+
 
     Column(
         modifier = modifier

@@ -25,7 +25,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import ryu.masters_thesis.ryus_chatting_application.config.AppSettings
 import ryu.masters_thesis.ryus_chatting_application.config.isDarkTheme
-
+import ryu.masters_thesis.ryus_chatting_application.logic.bluetooth.BluetoothController
 
 // dataclass, bude zmigrovano do jednotne <all_sorted_by_usecase>_Datacalss.kt nebo neco takoveho:
 data class ChatMessage(
@@ -42,15 +42,47 @@ val previewMessages = listOf(
     ChatMessage("\uD83D\uDC7D", "12:03", isMe = true),
 )
 
-
 @Composable
 fun ChatRoomScreen(
     roomName: String,
     onBack: () -> Unit,
     onInfo: () -> Unit,
+    settings: AppSettings,
+    bluetoothController: BluetoothController
+) {
+    val btMessages by bluetoothController.messages.collectAsState()
+    val isConnected by bluetoothController.isConnected.collectAsState()
+
+    val messages = btMessages.map { msg ->
+        when {
+            msg.startsWith("You: ")    -> ChatMessage(msg.removePrefix("You: "),    "", isMe = true)
+            msg.startsWith("Remote: ") -> ChatMessage(msg.removePrefix("Remote: "), "", isMe = false)
+            else                       -> ChatMessage(msg, "", isMe = false)
+        }
+    }
+
+    ChatRoomScreenContent(
+        roomName      = roomName,
+        messages      = messages,
+        isConnected   = isConnected,
+        onSendMessage = { bluetoothController.sendMessage(it) },
+        onBack        = onBack,
+        onInfo        = onInfo,
+        settings      = settings
+    )
+}
+
+@Composable
+private fun ChatRoomScreenContent(
+    roomName: String,
+    messages: List<ChatMessage>,
+    isConnected: Boolean,
+    onSendMessage: (String) -> Unit,
+    onBack: () -> Unit,
+    onInfo: () -> Unit,
     settings: AppSettings
 ) {
-    val isDark = settings.isDarkTheme()
+    val isDark          = settings.isDarkTheme()
     val backgroundColor = if (isDark) Color(0xFF121212) else Color.White
     val surfaceColor    = if (isDark) Color(0xFF1E1E1E) else Color(0xFFF5F5F5)
     val textColor       = if (isDark) Color.White else Color.Black
@@ -99,8 +131,24 @@ fun ChatRoomScreen(
             }
         }
 
+        // Stav připojení — zobrazí se dokud klient není připojen
+        if (!isConnected) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(surfaceColor)
+                    .padding(vertical = 6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "⏳ Čeká se na připojení klienta...",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = textColor.copy(alpha = 0.6f)
+                )
+            }
+        }
+
         // ZPRÁVY:
-        val messages = remember { mutableStateListOf(*previewMessages.toTypedArray()) }
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
@@ -141,18 +189,12 @@ fun ChatRoomScreen(
                 maxLines = 4
             )
             IconButton(
-                //logika pro odesilani zpravy
                 onClick = {
                     if (messageInput.isNotBlank()) {
-                        messages.add(
-                            ChatMessage(
-                                text = messageInput.trim(),
-                                time = "teď",
-                                isMe = true
-                            )
-                        )
+                        onSendMessage(messageInput.trim())
                         messageInput = ""
-                    } },
+                    }
+                },
                 enabled = messageInput.isNotBlank()
             ) {
                 Icon(Icons.Default.Send, contentDescription = "Odeslat", tint = if (messageInput.isNotBlank()) iconColor else iconColor.copy(alpha = 0.3f))
@@ -208,14 +250,16 @@ fun MessageBubble(message: ChatMessage, isDark: Boolean) {
     }
 }
 
-
 @Preview(showBackground = true)
 @Composable
 fun ChatRoomScreenPreview() {
-    ChatRoomScreen(
-        roomName = "RyuRoom-696",
-        onBack = {},
-        onInfo = {},
-        settings = AppSettings()
+    ChatRoomScreenContent(
+        roomName      = "RyuRoom-696",
+        messages      = previewMessages,
+        isConnected   = true,
+        onSendMessage = {},
+        onBack        = {},
+        onInfo        = {},
+        settings      = AppSettings()
     )
 }

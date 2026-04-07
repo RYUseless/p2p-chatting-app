@@ -40,6 +40,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import ryu.masters_thesis.ryus_chatting_application.config.AppSettings
 import ryu.masters_thesis.ryus_chatting_application.config.isDarkTheme
+import ryu.masters_thesis.ryus_chatting_application.logic.bluetooth.BluetoothController
 import ryu.masters_thesis.ryus_chatting_application.ui.screens.*
 //import kotlinx.coroutines.Job
 //import kotlinx.coroutines.launch
@@ -64,7 +65,8 @@ sealed class Screen(val route: String) {
 fun AppNavGraph(
     modifier: Modifier = Modifier,
     settings: AppSettings,
-    onSettingsChange: (AppSettings) -> Unit
+    onSettingsChange: (AppSettings) -> Unit,
+    bluetoothController: BluetoothController  // ← PŘIDEJ
 ) {
     var localSettings by remember { mutableStateOf(settings) }
     LaunchedEffect(settings) { localSettings = settings }
@@ -131,10 +133,17 @@ fun AppNavGraph(
         ) {
             SwipeableDismissDialog(
                 onDismiss = { navController.popBackStack() },
-                settings = localSettings ) {
+                settings = localSettings
+            ) {
                 CreateScreen(
-                    onDismiss = { navController.popBackStack() },
-                    settings = localSettings
+                    onDismiss        = { navController.popBackStack() },
+                    onNavigateToChat = { roomId ->
+                        navController.navigate(Screen.ChatRoom.createRoute(roomId)) {
+                            popUpTo(Screen.Start.route)
+                        }
+                    },
+                    settings            = localSettings,        // ← bylo appSettings (chyba)
+                    bluetoothController = bluetoothController   // ← teď je v scope
                 )
             }
         }
@@ -166,17 +175,18 @@ fun AppNavGraph(
         composable(
             route = Screen.ChatRoom.route,
             arguments = listOf(navArgument("roomName") { type = NavType.StringType }),
-            enterTransition = { fadeIn(animationSpec = tween(200)) },
-            exitTransition = { fadeOut(animationSpec = tween(200)) },
-            popEnterTransition = { fadeIn(animationSpec = tween(200)) },
-            popExitTransition = { fadeOut(animationSpec = tween(200)) }
+            enterTransition  = { fadeIn(animationSpec = tween(200)) },
+            exitTransition   = { fadeOut(animationSpec = tween(200)) },
+            popEnterTransition  = { fadeIn(animationSpec = tween(200)) },
+            popExitTransition   = { fadeOut(animationSpec = tween(200)) }
         ) { backStackEntry ->
             val roomName = backStackEntry.arguments?.getString("roomName") ?: ""
             ChatRoomScreen(
-                roomName = roomName,
-                onBack = { navController.popBackStack() },
-                onInfo = { },
-                settings = localSettings
+                roomName            = roomName,
+                onBack              = { navController.popBackStack() },
+                onInfo              = { },
+                settings            = localSettings,
+                bluetoothController = bluetoothController  // ← přidáno
             )
         }
 
