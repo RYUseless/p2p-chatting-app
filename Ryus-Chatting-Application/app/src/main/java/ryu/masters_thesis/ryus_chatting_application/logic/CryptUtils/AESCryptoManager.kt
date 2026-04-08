@@ -20,9 +20,11 @@ class AESCryptoManager (private val context: Context,
      * Generates new AES key and encrypts it with password
      */
     fun initializeAsServer(password: String): String {
+        Log.d("MessageCryptoUtils", "🔑 Server init: room=$roomId password=${password.length}ch")
         // Generate new AES key and IV for this room
         secretKey = AesKeyManager.generateSecretKey()
         iv = AesKeyManager.generateIV()
+
 
         Log.d("MessageCryptoUtils", "Server: Generated AES key and IV")
 
@@ -45,8 +47,7 @@ class AESCryptoManager (private val context: Context,
         val saltB64 = Base64.encodeToString(salt, Base64.NO_WRAP)
         val ivB64 = Base64.encodeToString(iv!!.iv, Base64.NO_WRAP)
 
-        Log.d("MessageCryptoUtils", "Server: Sending salt:$saltB64 iv:$ivB64 encKey:${encryptedKeyData.take(20)}...")
-
+        Log.d("MessageCryptoUtils", "📤 Server SENDS: $saltB64:$ivB64:${encryptedKeyData.take(20)}...")
         return "$saltB64:$ivB64:$encryptedKeyData"
     }
 
@@ -55,40 +56,39 @@ class AESCryptoManager (private val context: Context,
      * Receives encrypted AES key and decrypts with password
      */
     fun initializeAsClient(keyExchangeData: String, password: String): Boolean {
+        Log.d("MessageCryptoUtils", "Client: RAW keyExchangeData='$keyExchangeData'")
+
         return try {
-            val parts = keyExchangeData.split(":")
+            val parts = keyExchangeData.split(":", limit = 3)
             if (parts.size != 3) {
-                Log.e("MessageCryptoUtils", "Client: Invalid key exchange format, expected 3 parts got ${parts.size}")
+                Log.e("MessageCryptoUtils", "Client: Invalid format, expected 3 parts got ${parts.size}: $keyExchangeData")
                 return false
             }
 
-            val salt = Base64.decode(parts[0], Base64.NO_WRAP)
-            val ivBytes = Base64.decode(parts[1], Base64.NO_WRAP)
+            val saltB64 = parts[0]
+            val ivB64 = parts[1]
             val encryptedKeyData = parts[2]
 
-            Log.d("MessageCryptoUtils", "Client: Received salt (${salt.size} bytes), IV (${ivBytes.size} bytes)")
+            Log.d("MessageCryptoUtils", "Client: saltB64=${saltB64.take(20)}... ivB64=${ivB64.take(20)}...")
 
-            // Set the IV that server sent
+            val salt = Base64.decode(saltB64, Base64.NO_WRAP)
+            val ivBytes = Base64.decode(ivB64, Base64.NO_WRAP)
+
+            Log.d("MessageCryptoUtils", "Client: salt=${salt.size}B iv=${ivBytes.size}B password=${password.length}ch")
+
             iv = IvParameterSpec(ivBytes)
-
-            // Save salt for this room
             AesKeyManager.saveSalt(context, roomId, salt)
 
-            // Decrypt the AES key with password
+            // ← ZDE SELHÁVA decryptAesKeyWithPassword()
             secretKey = AesKeyManager.decryptAesKeyWithPassword(encryptedKeyData, password, salt)
 
-            Log.d("MessageCryptoUtils", "Client: Decrypted AES key successfully")
-
-            // Save the decrypted AES key locally
             AesKeyManager.saveRoomAesKey(context, roomId, secretKey!!, iv!!)
-
-            // Mark as unlocked
             isUnlocked = true
 
-            Log.d("MessageCryptoUtils", "Client: Crypto initialized and ready")
+            Log.d("MessageCryptoUtils", "✅ Client: AES KEY DECRYPTED SUCCESS!")
             true
         } catch (e: Exception) {
-            Log.e("MessageCryptoUtils", "Client: Failed to initialize - ${e.message}", e)
+            Log.e("MessageCryptoUtils", "❌ Client decrypt FAILED: ${e.message}", e)
             false
         }
     }

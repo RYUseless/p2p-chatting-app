@@ -64,6 +64,15 @@ fun CreateScreen(
     var serverStarted by remember { mutableStateOf(false) }
     var showQrDialog  by remember { mutableStateOf(false) }
 
+    // pokus
+    // Vygeneruje roomId při otevření screenu
+    LaunchedEffect(Unit) {
+        bluetoothController.initRoomId()
+    }
+
+    // Předvyplní roomName z backendu, uživatel může změnit
+    var roomName by remember(currentRoomId) { mutableStateOf(currentRoomId ?: "") }
+
     // Zkontroluje jestli jsou Bluetooth permissions granted
     val hasPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         ContextCompat.checkSelfPermission(
@@ -98,9 +107,8 @@ fun CreateScreen(
             Column(modifier = Modifier.fillMaxWidth()) {
                 TextWidget("Chatroom Name", textColor)
                 OutlinedTextField(
-                    value = currentRoomId ?: "Generuje se po vytvoření...",
-                    onValueChange = {},
-                    readOnly = true,
+                    value = roomName,
+                    onValueChange = { roomName = it },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -140,10 +148,10 @@ fun CreateScreen(
                 )
             }
 
-            // Tlačítko 1: Vytvořit místnost
-            // → spustí server + makeDiscoverable() + naviguje do ChatRoomScreen
+            // VYTVORIT MISTNOST TLACITKO
             Button(
                 onClick = {
+                    bluetoothController.setRoomId(roomName)
                     val roomId = bluetoothController.createRoomFromCreateScreen(password)
                     serverStarted = true
                     if (roomId != null) {
@@ -154,16 +162,16 @@ fun CreateScreen(
                 colors = blackButtonColors,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(if (serverStarted) "✓ Místnost vytvořena" else "Vytvořit místnost")
+                Text(strings.buttonCreate)
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Tlačítko 2: Zobrazit QR kód
-            // → pokud server ještě neběží, spustí ho + zobrazí QR (bez navigace)
+            // QR KOD TLACITKO --------------------------------
             Button(
                 onClick = {
                     if (!serverStarted) {
+                        bluetoothController.setRoomId(roomName)
                         bluetoothController.createRoomFromCreateScreen(password)
                         serverStarted = true
                     }

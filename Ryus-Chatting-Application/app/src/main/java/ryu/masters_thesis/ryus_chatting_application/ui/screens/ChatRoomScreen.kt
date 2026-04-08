@@ -52,19 +52,22 @@ fun ChatRoomScreen(
 ) {
     val btMessages by bluetoothController.messages.collectAsState()
     val isConnected by bluetoothController.isConnected.collectAsState()
+    val isVerified by bluetoothController.isVerified.collectAsState()  // Opraveno na collectAsState()
+
 
     val messages = btMessages.map { msg ->
-        when {
-            msg.startsWith("You: ")    -> ChatMessage(msg.removePrefix("You: "),    "", isMe = true)
-            msg.startsWith("Remote: ") -> ChatMessage(msg.removePrefix("Remote: "), "", isMe = false)
-            else                       -> ChatMessage(msg, "", isMe = false)
-        }
+        ChatMessage(
+            text  = msg.content,
+            time  = "",
+            isMe  = msg.sender == "You"
+        )
     }
 
     ChatRoomScreenContent(
         roomName      = roomName,
         messages      = messages,
         isConnected   = isConnected,
+        isVerified    = isVerified,
         onSendMessage = { bluetoothController.sendMessage(it) },
         onBack        = onBack,
         onInfo        = onInfo,
@@ -77,6 +80,7 @@ private fun ChatRoomScreenContent(
     roomName: String,
     messages: List<ChatMessage>,
     isConnected: Boolean,
+    isVerified: Boolean,
     onSendMessage: (String) -> Unit,
     onBack: () -> Unit,
     onInfo: () -> Unit,
@@ -132,7 +136,7 @@ private fun ChatRoomScreenContent(
         }
 
         // Stav připojení — zobrazí se dokud klient není připojen
-        if (!isConnected) {
+        if (!isConnected || !isVerified) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -141,7 +145,11 @@ private fun ChatRoomScreenContent(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "⏳ Čeká se na připojení klienta...",
+                    text = when {
+                        !isConnected  -> "⏳ Čeká se na připojení klienta..."
+                        true -> "⚠️ Spojení ověřuje se..."
+                        else                   -> ""
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = textColor.copy(alpha = 0.6f)
                 )
@@ -257,6 +265,7 @@ fun ChatRoomScreenPreview() {
         roomName      = "RyuRoom-696",
         messages      = previewMessages,
         isConnected   = true,
+        isVerified = true,
         onSendMessage = {},
         onBack        = {},
         onInfo        = {},

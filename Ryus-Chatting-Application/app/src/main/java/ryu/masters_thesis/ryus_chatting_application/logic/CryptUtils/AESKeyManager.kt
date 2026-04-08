@@ -4,6 +4,7 @@ import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import android.util.Log
 import java.security.KeyStore
 import java.security.SecureRandom
 import javax.crypto.Cipher
@@ -132,13 +133,14 @@ object AesKeyManager {
      * Encrypt AES key with password-derived key for transmission
      */
     fun encryptAesKeyWithPassword(aesKey: SecretKey, password: String, salt: ByteArray): String {
-        val derivedKey = deriveKeyFromPassword(password, salt)
+        Log.d("AesKeyManager", "🔐 ENCRYPT aesKey=${aesKey.encoded.size}B pwd=${password.length}ch")
+        val derivedKey = deriveKeyFromPassword(password.trim(), salt)
         val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
         val iv = generateIV()
         cipher.init(Cipher.ENCRYPT_MODE, derivedKey, iv)
         val encryptedKeyBytes = cipher.doFinal(aesKey.encoded)
+        Log.d("AesKeyManager", "🔐 Encrypted → ${encryptedKeyBytes.size}B (IV+data=${iv.iv.size + encryptedKeyBytes.size}B)")
 
-        // Format: IV (16 bytes) + encrypted key
         val combined = iv.iv + encryptedKeyBytes
         return Base64.encodeToString(combined, Base64.NO_WRAP)
     }
@@ -147,15 +149,22 @@ object AesKeyManager {
      * Decrypt received AES key with password
      */
     fun decryptAesKeyWithPassword(encryptedKeyData: String, password: String, salt: ByteArray): SecretKey {
+        Log.d("AesKeyManager", "🔓 DECRYPT data=${encryptedKeyData.length}ch pwd=${password.length}ch")
         val combined = Base64.decode(encryptedKeyData, Base64.NO_WRAP)
+        if (combined.size < 16) throw IllegalArgumentException("Invalid encrypted data: ${combined.size}B")
+
         val iv = combined.copyOfRange(0, 16)
         val encryptedKey = combined.copyOfRange(16, combined.size)
+        Log.d("AesKeyManager", "🔓 IV=${Base64.encodeToString(iv, Base64.NO_WRAP).take(20)}... encrypted=${encryptedKey.size}B")
 
-        val derivedKey = deriveKeyFromPassword(password, salt)
+        val derivedKey = deriveKeyFromPassword(password.trim(), salt)
         val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
         cipher.init(Cipher.DECRYPT_MODE, derivedKey, IvParameterSpec(iv))
         val decryptedKeyBytes = cipher.doFinal(encryptedKey)
+        Log.d("AesKeyManager", "✅ DECRYPTED AES key: ${decryptedKeyBytes.size}B")
 
         return SecretKeySpec(decryptedKeyBytes, "AES")
     }
 }
+
+

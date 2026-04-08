@@ -8,7 +8,9 @@ import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.BufferedReader
 import java.io.IOException
+import java.io.InputStreamReader
 import java.util.UUID
 import androidx.core.content.edit
 
@@ -24,19 +26,26 @@ class BluetoothConnectionManager(
     private var originalDeviceName: String? = null
     private var currentRoomId: String? = null
 
-    fun startServer(roomId: String) {
-        currentRoomId = roomId
-        Log.d(BluetoothConstants.TAG_CONNECTION, "Starting server with room ID: $roomId")
+    // BufferedReader zajišťuje kompletní čtení řádků bez fragmentace RFCOMM streamu
+    private var bufferedReader: BufferedReader? = null
+
+    @SuppressLint("MissingPermission")
+    fun startServer(advertisedName: String) {
+        currentRoomId = advertisedName
+        Log.d(BluetoothConstants.TAG_CONNECTION, "Starting server with advertised name: $advertisedName")
 
         originalDeviceName = bluetoothAdapter?.name
-
         val prefs = context.getSharedPreferences("bluetooth_state", Context.MODE_PRIVATE)
         prefs.edit { putString("original_bt_name", originalDeviceName) }
-        Log.d(BluetoothConstants.TAG_CONNECTION, "Saved original name to SharedPreferences: $originalDeviceName")
+        Log.d(BluetoothConstants.TAG_CONNECTION, "Saved original BT name: $originalDeviceName")
 
-        val newName = "${BluetoothConstants.APP_IDENTIFIER}_${roomId}"
-        bluetoothAdapter?.setName(newName)
-        Log.d(BluetoothConstants.TAG_CONNECTION, "Device name changed from '$originalDeviceName' to '$newName'")
+        // ← OPRAVA: použij advertisedName přímo, BluetoothController již přidal APP_IDENTIFIER prefix
+        try {
+            bluetoothAdapter?.name = advertisedName
+            Log.d(BluetoothConstants.TAG_CONNECTION, "BT name changed: $originalDeviceName → $advertisedName")
+        } catch (e: SecurityException) {
+            Log.e(BluetoothConstants.TAG_CONNECTION, "Cannot set BT name: ${e.message}")
+        }
 
         BluetoothCleanupService.originalDeviceName = originalDeviceName
         BluetoothCleanupService.bluetoothAdapter = bluetoothAdapter
@@ -44,14 +53,12 @@ class BluetoothConnectionManager(
         Thread {
             val startTime = System.currentTimeMillis()
             val timeout = 300_000L
-
             try {
                 serverSocket = bluetoothAdapter?.listenUsingRfcommWithServiceRecord(
                     BluetoothConstants.APP_IDENTIFIER,
                     UUID.fromString(BluetoothConstants.UUID_STRING)
                 )
                 Log.d(BluetoothConstants.TAG_CONNECTION, "Server socket created, waiting for connection...")
-
                 socket = serverSocket?.accept()
 
                 val elapsed = System.currentTimeMillis() - startTime
@@ -64,9 +71,10 @@ class BluetoothConnectionManager(
 
                 if (socket != null) {
                     Log.d(BluetoothConstants.TAG_CONNECTION, "Client connected: ${socket!!.remoteDevice.name}")
+                    // OPRAVA: Chyběla inicializace bufferu na serveru!
+                    bufferedReader = BufferedReader(InputStreamReader(socket!!.inputStream, Charsets.UTF_8))
                     onConnected(socket!!, socket!!.remoteDevice.name ?: "Unknown")
                 }
-
             } catch (e: IOException) {
                 Log.e(BluetoothConstants.TAG_CONNECTION, "Server error: ${e.message}", e)
                 closeConnection()
@@ -74,7 +82,6 @@ class BluetoothConnectionManager(
             }
         }.start()
     }
-
 
     suspend fun connectAsClient(device: android.bluetooth.BluetoothDevice) {
         Log.d(BluetoothConstants.TAG_CONNECTION, "Connecting to client: ${device.name}")
@@ -87,6 +94,7 @@ class BluetoothConnectionManager(
                 Log.d(BluetoothConstants.TAG_CONNECTION, "Connected! Socket status: ${socket?.isConnected}")
 
                 if (socket != null) {
+                    bufferedReader = BufferedReader(InputStreamReader(socket!!.inputStream, Charsets.UTF_8))
                     onConnected(socket!!, device.name ?: "Unknown")
                 }
             } catch (e: IOException) {
@@ -108,19 +116,14 @@ class BluetoothConnectionManager(
         }
     }
 
+    // readLine() blokuje dokud nepřijde celý řádek → žádná fragmentace RFCOMM streamu
     fun readMessage(): String? {
         return try {
-            val inputStream = socket?.inputStream ?: return null
-            val buffer = ByteArray(1024)
-            val bytes = inputStream.read(buffer)
-            if (bytes > 0) {
-                val message = String(buffer, 0, bytes, Charsets.UTF_8).trim()
-                Log.d(BluetoothConstants.TAG_CONNECTION, "Received: $message")
-                //here decypher function
-                message
-            } else {
-                null
+            val line = bufferedReader?.readLine()
+            if (line != null) {
+                Log.d(BluetoothConstants.TAG_CONNECTION, "Received: $line")
             }
+            line
         } catch (e: IOException) {
             Log.e(BluetoothConstants.TAG_CONNECTION, "Read error: ${e.message}")
             null
@@ -135,6 +138,8 @@ class BluetoothConnectionManager(
 
     fun closeConnection() {
         try {
+            bufferedReader?.close()
+            bufferedReader = null
             serverSocket?.close()
             socket?.close()
 
@@ -144,7 +149,6 @@ class BluetoothConnectionManager(
             if (savedName != null) {
                 bluetoothAdapter?.setName(savedName)
                 Log.d(BluetoothConstants.TAG_CONNECTION, "Device name restored to: $savedName")
-
                 prefs.edit { remove("original_bt_name") }
             }
 
@@ -153,8 +157,4 @@ class BluetoothConnectionManager(
             Log.e(BluetoothConstants.TAG_CONNECTION, "Close error", e)
         }
     }
-
-
-    //fun getRoomId(): String? = currentRoomId
 }
-
