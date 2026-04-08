@@ -195,8 +195,6 @@ fun AppNavGraph(
 }
 
 // SWIPE TO THE SIDE MAGICO
-// issue with jerk motion při přechodu z swipe na fadeaway animaci → fixed?
-
 enum class DismissValue { Center, DismissedLeft, DismissedRight }
 
 @Composable
