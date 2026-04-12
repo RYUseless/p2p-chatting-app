@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -69,4 +70,14 @@ dependencies {
     implementation(libs.androidx.compose.foundation)
     // this hardcoded, kvůli implementaci nových věci v AppNavGraph.kt
     implementation("androidx.navigation:navigation-compose:2.9.7")
+    //krypto:
+    // Databáze Room
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler) // Zde použij KSP
+
+    // Šifrování databáze
+    implementation(libs.sqlcipher)
+    implementation(libs.androidx.sqlite.ktx)
+    implementation(libs.androidx.security.crypto)
 }

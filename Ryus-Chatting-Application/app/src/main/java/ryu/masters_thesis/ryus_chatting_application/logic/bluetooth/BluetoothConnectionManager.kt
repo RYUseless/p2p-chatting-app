@@ -71,7 +71,7 @@ class BluetoothConnectionManager(
 
                 if (socket != null) {
                     Log.d(BluetoothConstants.TAG_CONNECTION, "Client connected: ${socket!!.remoteDevice.name}")
-                    // OPRAVA: Chyběla inicializace bufferu na serveru!
+                    // Buffer pro server
                     bufferedReader = BufferedReader(InputStreamReader(socket!!.inputStream, Charsets.UTF_8))
                     onConnected(socket!!, socket!!.remoteDevice.name ?: "Unknown")
                 }

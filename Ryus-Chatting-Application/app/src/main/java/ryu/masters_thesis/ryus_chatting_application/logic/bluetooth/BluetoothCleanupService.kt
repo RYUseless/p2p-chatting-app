@@ -47,14 +47,14 @@ class BluetoothCleanupService : Service() {
         super.onTaskRemoved(rootIntent)
         Log.d("BluetoothCleanupService", "App swiped away, restoring Bluetooth name")
 
-        val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+        val bluetoothManager = getSystemService(BLUETOOTH_SERVICE) as? BluetoothManager
         val bluetoothAdapter = bluetoothManager?.adapter
 
-        val prefs = getSharedPreferences("bluetooth_state", Context.MODE_PRIVATE)
+        val prefs = getSharedPreferences("bluetooth_state", MODE_PRIVATE)
         val savedName = prefs.getString("original_bt_name", null)
 
         if (savedName != null && bluetoothAdapter != null) {
-            bluetoothAdapter.setName(savedName)
+            bluetoothAdapter.name = savedName
             Log.d("BluetoothCleanupService", "Restored name to: $savedName")
 
             prefs.edit { remove("original_bt_name") }

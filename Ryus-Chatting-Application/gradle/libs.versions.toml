@@ -14,6 +14,12 @@ androidxCamera = "1.6.0"
 mlkitBarcodeScanning = "17.3.0"
 navigation = "2.7.7"
 foundation = "1.10.4"
+# database shitte
+ksp = "2.2.10-2.0.2"
+room = "2.6.1"
+sqlcipher = "4.5.4"
+sqlite = "2.4.0"
+securityCrypto = "1.1.0-alpha06"
 
 
 
@@ -42,8 +48,16 @@ androidx-camera-view     = { group = "androidx.camera", name = "camera-view",   
 mlkit-barcode-scanning   = { group = "com.google.mlkit", name = "barcode-scanning", version.ref = "mlkitBarcodeScanning" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation" }
 androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+sqlcipher = { group = "net.zetetic", name = "android-database-sqlcipher", version.ref = "sqlcipher" }
+androidx-sqlite-ktx = { group = "androidx.sqlite", name = "sqlite-ktx", version.ref = "sqlite" }
+androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+#ksp:
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 
