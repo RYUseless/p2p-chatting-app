@@ -5,6 +5,7 @@ import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import ryu.masters_thesis.presentation.chatroom.ui.ChatRoomScreen
 import ryu.masters_thesis.presentation.component.ui.SwipeableDismissWrapper
 import ryu.masters_thesis.presentation.connect.domain.ConnectOneTimeEvent
 import ryu.masters_thesis.presentation.connect.implementation.ConnectRepositoryImpl
@@ -23,9 +24,7 @@ object ConnectScreen : Screen {
         LaunchedEffect(Unit) {
             screenModel.oneTimeEvents.collect { event ->
                 when (event) {
-                    is ConnectOneTimeEvent.NavigateToChat -> {
-                        // TODO: navigator.push(ChatRoomScreen(event.roomId))
-                    }
+                    is ConnectOneTimeEvent.NavigateToChat -> navigator.push(ChatRoomScreen(event.roomId))
                     is ConnectOneTimeEvent.Dismiss        -> navigator.pop()
                     is ConnectOneTimeEvent.ShowError      -> Unit
                 }

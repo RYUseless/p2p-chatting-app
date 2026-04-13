@@ -5,6 +5,7 @@ import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import androidx.compose.runtime.*
+import ryu.masters_thesis.presentation.chatroom.ui.ChatRoomScreen
 //Ryuoviny
 import ryu.masters_thesis.presentation.connect.ui.ConnectScreen
 import ryu.masters_thesis.presentation.create.ui.CreateScreen
@@ -30,12 +31,11 @@ object HomeScreen : Screen {
             screenModel.oneTimeEvents.collect { event ->
                 when (event) {
                     is HomeOneTimeEvent.Navigate -> {
-                        when (event.event) {
-                            is HomeEvent.ConnectClicked -> navigator.push(ConnectScreen)
-                            is HomeEvent.CreateClicked -> navigator.push(CreateScreen)
+                        when (val navEvent = event.event) {
+                            is HomeEvent.RoomClicked     -> navigator.push(ChatRoomScreen(navEvent.room.name))
+                            is HomeEvent.ConnectClicked  -> navigator.push(ConnectScreen)
+                            is HomeEvent.CreateClicked   -> navigator.push(CreateScreen)
                             is HomeEvent.SettingsClicked -> navigator.push(SettingsScreen)
-                            //dummies:
-                            is HomeEvent.RoomClicked     -> { /* navigator.push(ChatRoomScreen(event.event.room.id)) */ } //dummy
                         }
                     }
                     is HomeOneTimeEvent.ShowError -> Unit // zpracováno v HomeContent přes snackbar
