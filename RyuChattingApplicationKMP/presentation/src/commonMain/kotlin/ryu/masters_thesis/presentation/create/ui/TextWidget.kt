@@ -5,21 +5,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 
-// Sdílený label widget pro form fieldy
 @Composable
 fun TextWidget(
     text: String,
-    color: Color,
     modifier: Modifier = Modifier,
 ) {
     Text(
-        text = "$text:",
-        style = MaterialTheme.typography.titleMedium,
-        color = color,
-        modifier = modifier.fillMaxWidth(),
+        text      = "$text:",
+        style     = MaterialTheme.typography.titleMedium,
+        color     = MaterialTheme.colorScheme.onSurface,   // ← z theme
+        modifier  = modifier.fillMaxWidth(),
         textAlign = TextAlign.Left
     )
 }

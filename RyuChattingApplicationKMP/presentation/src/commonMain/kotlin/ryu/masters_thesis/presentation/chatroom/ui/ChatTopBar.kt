@@ -10,7 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+//import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import ryu.masters_thesis.presentation.chatroom.domain.ChatRoomEvent
 
@@ -20,10 +20,9 @@ fun ChatTopBar(
     isConnected: Boolean,
     isVerified: Boolean,
     onEvent: (ChatRoomEvent) -> Unit,
-    isDark: Boolean,
 ) {
-    val surfaceColor = if (isDark) Color(0xFF1E1E1E) else Color(0xFFF5F5F5)
-    val textColor    = if (isDark) Color.White       else Color.Black
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val textColor    = MaterialTheme.colorScheme.onSurface
 
     Column {
         Row(
@@ -57,7 +56,6 @@ fun ChatTopBar(
             }
         }
 
-        // Stav připojení
         if (!isConnected || !isVerified) {
             Box(
                 modifier = Modifier

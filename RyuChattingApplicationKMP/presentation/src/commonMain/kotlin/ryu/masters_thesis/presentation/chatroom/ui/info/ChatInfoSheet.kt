@@ -20,13 +20,13 @@ import ryu.masters_thesis.presentation.chatroom.implementation.ChatRoomState
 fun ChatInfoSheet(
     state: ChatRoomState,
     onEvent: (ChatRoomEvent) -> Unit,
-    isDark: Boolean,
+    // isDark ← odebráno
 ) {
-    val backgroundColor = if (isDark) Color(0xFF1E1E1E) else Color.White
-    val textColor       = if (isDark) Color.White       else Color.Black
+    val backgroundColor = MaterialTheme.colorScheme.surface
+    val textColor       = MaterialTheme.colorScheme.onSurface
     val buttonColors    = ButtonDefaults.buttonColors(
-        containerColor = if (isDark) Color.White else Color.Black,
-        contentColor   = if (isDark) Color.Black else Color.White
+        containerColor = MaterialTheme.colorScheme.primary,
+        contentColor   = MaterialTheme.colorScheme.onPrimary,
     )
 
     Dialog(onDismissRequest = { onEvent(ChatRoomEvent.InfoSheetDismissed) }) {
@@ -41,58 +41,48 @@ fun ChatInfoSheet(
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             Text(
-                // TODO DUMMY: překlad hardcoded
                 text  = "Room info",
                 style = MaterialTheme.typography.titleLarge,
                 color = textColor,
             )
 
-            // QR sekce – reuse z create modulu
             state.currentRoomId?.let { roomId ->
                 ChatInfoQrSection(
-                    roomId      = roomId,
+                    roomId       = roomId,
                     showQrDialog = state.showQrDialog,
-                    onEvent     = onEvent,
-                    isDark      = isDark,
-                    textColor   = textColor,
-                    buttonColors = buttonColors,
+                    onEvent      = onEvent,
+                    // isDark, textColor, buttonColors ← odebráno
                 )
                 HorizontalDivider()
             }
 
-            // Barva chatu
             ChatInfoColorSection(
                 currentColorHex = state.chatColorHex,
                 onEvent         = onEvent,
-                textColor       = textColor,
+                // textColor ← odebráno
             )
             HorizontalDivider()
 
-            // Přezdívky
             ChatInfoNicknameSection(
-                nicknames    = state.nicknames,
-                onEvent      = onEvent,
-                textColor    = textColor,
-                buttonColors = buttonColors,
+                nicknames = state.nicknames,
+                onEvent   = onEvent,
+                // textColor, buttonColors ← odebráno
             )
             HorizontalDivider()
 
-            // Whitelist
             ChatInfoWhitelistSection(
-                whitelist  = state.whitelist,
-                nicknames  = state.nicknames,
-                onEvent    = onEvent,
-                textColor  = textColor,
+                whitelist = state.whitelist,
+                nicknames = state.nicknames,
+                onEvent   = onEvent,
+                // textColor ← odebráno
             )
             HorizontalDivider()
 
-            // Close
             Button(
                 onClick  = { onEvent(ChatRoomEvent.InfoSheetDismissed) },
                 colors   = buttonColors,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // TODO DUMMY: překlad hardcoded
                 Text("Close")
             }
         }

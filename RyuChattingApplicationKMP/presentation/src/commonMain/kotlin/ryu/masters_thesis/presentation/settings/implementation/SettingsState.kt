@@ -1,10 +1,16 @@
 package ryu.masters_thesis.presentation.settings.implementation
 
-// Immutable snapshot – jediný zdroj pravdy pro SettingsContent
-// TODO DUMMY: language a theme jsou String, až bude AppSettings z :core nahradit enummy
+import ryu.masters_thesis.core.configuration.AppLanguage
+import ryu.masters_thesis.core.configuration.AppTheme
+
+/*
+state is now getting its values from :core.commonmain.configration
+→ no more hardcoded values → everything can be configured in :Core:configuration
+ */
+
 data class SettingsState(
-    val language: String = "English",
-    val theme: String = "System",
-    val availableLanguages: List<String> = listOf("English", "Czech"),
-    val availableThemes: List<String> = listOf("System", "Light", "Dark"),
+    val language: AppLanguage        = AppLanguage.ENGLISH,
+    val theme: AppTheme              = AppTheme.SYSTEM,
+    val availableLanguages: List<AppLanguage> = AppLanguage.entries,
+    val availableThemes: List<AppTheme>       = AppTheme.entries,
 )

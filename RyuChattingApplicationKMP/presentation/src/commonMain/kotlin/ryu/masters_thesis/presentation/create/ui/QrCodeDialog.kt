@@ -15,17 +15,15 @@ import androidx.compose.ui.window.Dialog
 @Composable
 fun QrCodeDialog(
     roomId: String,
-    password: String,
-    isDark: Boolean,
+    password: String,  //will be implemented when core:logic exists
     onDismiss: () -> Unit,
 ) {
-    val backgroundColor = if (isDark) Color(0xFF1E1E1E) else Color.White
-    val textColor       = if (isDark) Color.White       else Color.Black
-
-    // TODO DUMMY: QRCodeGenerator bude v :core modulu, zatím placeholder
-    // formát pro QR: "roomId|password"
-    // val qrContent = "$roomId|$password"
-    // val qrBitmap = QRCodeGenerator.generate(content = qrContent, sizePx = 512)
+    val backgroundColor = MaterialTheme.colorScheme.surface
+    val textColor       = MaterialTheme.colorScheme.onSurface
+    val buttonColors    = ButtonDefaults.buttonColors(
+        containerColor = MaterialTheme.colorScheme.primary,
+        contentColor   = MaterialTheme.colorScheme.onPrimary,
+    )
 
     Dialog(onDismissRequest = onDismiss) {
         Column(
@@ -37,14 +35,12 @@ fun QrCodeDialog(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                // TODO DUMMY: překlad hardcoded
-                text = "Room QR Code",
+                text  = "Room QR Code",
                 style = MaterialTheme.typography.titleMedium,
                 color = textColor
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            // TODO DUMMY: až bude QRCodeGenerator z :core dostupný, nahradit Image(bitmap = ...)
             Box(
                 modifier = Modifier
                     .size(220.dp)
@@ -52,28 +48,24 @@ fun QrCodeDialog(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "QR placeholder\n$roomId",
-                    color = Color.Black,
+                    text      = "QR placeholder\n$roomId",
+                    color     = Color.Black,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
             }
 
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = "ID: $roomId",
+                text  = "ID: $roomId",
                 style = MaterialTheme.typography.labelSmall,
                 color = textColor.copy(alpha = 0.5f)
             )
             Spacer(modifier = Modifier.height(16.dp))
             Button(
-                onClick = onDismiss,
+                onClick  = onDismiss,
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isDark) Color.White else Color.Black,
-                    contentColor   = if (isDark) Color.Black else Color.White
-                )
+                colors   = buttonColors
             ) {
-                // TODO DUMMY: překlad hardcoded
                 Text("Close")
             }
         }

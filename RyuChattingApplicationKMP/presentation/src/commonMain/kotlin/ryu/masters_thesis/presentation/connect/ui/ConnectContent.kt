@@ -11,7 +11,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import ryu.masters_thesis.core.configuration.getTranslations
 import ryu.masters_thesis.presentation.component.ui.FindRoomItem
+import ryu.masters_thesis.presentation.component.ui.LocalAppSettings
 import ryu.masters_thesis.presentation.connect.domain.ConnectEvent
 import ryu.masters_thesis.presentation.connect.implementation.ConnectState
 
@@ -19,15 +21,15 @@ import ryu.masters_thesis.presentation.connect.implementation.ConnectState
 fun ConnectContent(
     state: ConnectState,
     onEvent: (ConnectEvent) -> Unit,
-    // TODO DUMMY: isDark nahradit AppSettings/Theme systémem až bude dostupný
-    isDark: Boolean = false,
 ) {
-    val backgroundColor = if (isDark) Color(0xFF121212) else Color.White
-    val surfaceColor    = if (isDark) Color(0xFF1E1E1E) else Color(0xFFF5F5F5)
-    val textColor       = if (isDark) Color.White       else Color.Black
+    val settings        = LocalAppSettings.current
+    val t               = getTranslations(settings.language)
+    val backgroundColor = MaterialTheme.colorScheme.background
+    val surfaceColor    = MaterialTheme.colorScheme.surface
+    val textColor       = MaterialTheme.colorScheme.onSurface
     val buttonColors    = ButtonDefaults.buttonColors(
-        containerColor = if (isDark) Color.White else Color.Black,
-        contentColor   = if (isDark) Color.Black else Color.White
+        containerColor = MaterialTheme.colorScheme.primary,
+        contentColor   = MaterialTheme.colorScheme.onPrimary,
     )
 
     Column(
@@ -37,12 +39,11 @@ fun ConnectContent(
             .background(backgroundColor)
             .padding(bottom = 32.dp)
     ) {
-        // TODO DUMMY: překlady hardcoded, nahradit až bude i18n dostupné
         Text(
-            text = "Connect to a room",
-            style = MaterialTheme.typography.headlineSmall,
-            color = textColor,
-            modifier = Modifier
+            text      = t.connectTitle,
+            style     = MaterialTheme.typography.headlineSmall,
+            color     = textColor,
+            modifier  = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 2.dp),
             textAlign = TextAlign.Center
@@ -50,14 +51,13 @@ fun ConnectContent(
 
         Text(
             text = if (state.isSearching)
-                "Time remaining: ${state.remainingSeconds}s"
-            else
-                "Search ended",
-            style = MaterialTheme.typography.titleSmall,
-            modifier = Modifier
+                t.connectTimeRemaining.replace("%d", state.remainingSeconds.toString())
+            else "Search ended", // TODO: přidat do AppTranslations
+            style     = MaterialTheme.typography.titleSmall,
+            modifier  = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 2.dp),
-            color = textColor,
+            color     = textColor,
             textAlign = TextAlign.Center
         )
 
@@ -65,9 +65,8 @@ fun ConnectContent(
 
         if (state.scannedDevices.isEmpty()) {
             Text(
-                // TODO DUMMY: překlad hardcoded
-                text = "No rooms found",
-                style = MaterialTheme.typography.titleLarge,
+                text     = t.connectNoRooms,
+                style    = MaterialTheme.typography.titleLarge,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp),
@@ -76,9 +75,8 @@ fun ConnectContent(
             Spacer(modifier = Modifier.weight(1f))
         } else {
             Text(
-                // TODO DUMMY: překlad hardcoded
-                text = "Available rooms: ${state.scannedDevices.size}",
-                style = MaterialTheme.typography.titleMedium,
+                text = t.connectAvailableRooms.replace("%d", state.scannedDevices.size.toString()),
+                style    = MaterialTheme.typography.titleMedium,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp),
@@ -92,35 +90,32 @@ fun ConnectContent(
             ) {
                 items(state.scannedDevices) { device ->
                     FindRoomItem(
-                        name = device.displayName,
-                        mac = device.address,
-                        textColor = textColor,
+                        name         = device.displayName,
+                        mac          = device.address,
+                        textColor    = textColor,
                         surfaceColor = surfaceColor,
-                        onClick = { onEvent(ConnectEvent.DeviceClicked(device)) }
+                        onClick      = { onEvent(ConnectEvent.DeviceClicked(device)) }
                     )
                 }
             }
         }
 
         Button(
-            onClick = { onEvent(ConnectEvent.DismissClicked) },
-            colors = buttonColors,
+            onClick  = { onEvent(ConnectEvent.DismissClicked) },
+            colors   = buttonColors,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
                 .padding(top = 16.dp)
         ) {
-            // TODO DUMMY: překlad hardcoded
-            Text("Close")
+            Text(t.close)
         }
     }
 
-    // Dialog pro připojení k vybranému zařízení
     state.selectedDevice?.let { device ->
         JoinRoomDialog(
-            device = device,
-            state = state,
-            isDark = isDark,
+            device  = device,
+            state   = state,
             onEvent = onEvent,
         )
     }

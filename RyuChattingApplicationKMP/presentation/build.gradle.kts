@@ -77,6 +77,8 @@ kotlin {
                 implementation("cafe.adriel.voyager:voyager-lifecycle-kmp:1.1.0-beta03")
                 //ikonky:
                 implementation("org.jetbrains.compose.material:material-icons-extended:1.7.3")
+                //call pro ostatni moduly:
+                implementation(project(":core"))
             }
         }
 

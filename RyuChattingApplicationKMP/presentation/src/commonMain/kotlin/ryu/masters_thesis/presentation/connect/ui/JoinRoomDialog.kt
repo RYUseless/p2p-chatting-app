@@ -20,19 +20,17 @@ import ryu.masters_thesis.presentation.connect.implementation.ConnectState
 fun JoinRoomDialog(
     device: ScannedDeviceUiModel,
     state: ConnectState,
-    isDark: Boolean,
+    // isDark ← odebráno
     onEvent: (ConnectEvent) -> Unit,
 ) {
-    val backgroundColor = if (isDark) Color(0xFF1E1E1E) else Color.White
-    val textColor       = if (isDark) Color.White       else Color.Black
+    val backgroundColor = MaterialTheme.colorScheme.surface
+    val textColor       = MaterialTheme.colorScheme.onSurface
     val buttonColors    = ButtonDefaults.buttonColors(
-        containerColor = if (isDark) Color.White else Color.Black,
-        contentColor   = if (isDark) Color.Black else Color.White
+        containerColor = MaterialTheme.colorScheme.primary,
+        contentColor   = MaterialTheme.colorScheme.onPrimary,
     )
 
     var passwordInput by remember { mutableStateOf("") }
-    // QR scanner je Android-only (kamera) – řeší se na UI vrstvě přes callback
-    // TODO DUMMY: showQrScanner logika přesunuta na ConnectContent level až bude platforma dostupná
     var showQrScanner by remember { mutableStateOf(false) }
 
     Dialog(onDismissRequest = { onEvent(ConnectEvent.DialogDismissed) }) {
@@ -45,29 +43,26 @@ fun JoinRoomDialog(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Connect to: ${device.displayName}",
+                text  = "Connect to: ${device.displayName}",
                 style = MaterialTheme.typography.titleMedium,
                 color = textColor
             )
             Text(
-                text = device.address,
+                text  = device.address,
                 style = MaterialTheme.typography.labelSmall,
                 color = textColor.copy(alpha = 0.5f)
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Connecting indicator
             if (!state.needsPassword) {
-                CircularProgressIndicator(color = if (isDark) Color.White else Color.Black)
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("Connecting...", color = textColor)
             }
 
-            // Password input
             if (state.needsPassword) {
                 if (showQrScanner) {
-                    // TODO DUMMY: QR scanner je Android-only, nahradit expect/actual až bude :core dostupný
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -77,8 +72,8 @@ fun JoinRoomDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "QR Scanner\n(TODO: platform impl)",
-                            color = Color.White,
+                            text      = "QR Scanner\n(TODO: platform impl)",
+                            color     = Color.White,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                     }
@@ -88,24 +83,21 @@ fun JoinRoomDialog(
                     }
                 } else {
                     OutlinedTextField(
-                        value = passwordInput,
-                        onValueChange = { passwordInput = it },
-                        label = { Text("Password") },
+                        value               = passwordInput,
+                        onValueChange       = { passwordInput = it },
+                        label               = { Text("Password") },
                         visualTransformation = PasswordVisualTransformation(),
-                        isError = state.passwordError != null,
-                        supportingText = {
-                            state.passwordError?.let {
-                                Text(it, color = Color.Red)
-                            }
+                        isError             = state.passwordError != null,
+                        supportingText      = {
+                            state.passwordError?.let { Text(it, color = Color.Red) }
                         },
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     TextButton(
-                        onClick = { showQrScanner = true },
+                        onClick  = { showQrScanner = true },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        // TODO DUMMY: překlad hardcoded
                         Text("Scan QR code", color = textColor)
                     }
                 }
@@ -114,11 +106,11 @@ fun JoinRoomDialog(
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier              = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedButton(
-                    onClick = { onEvent(ConnectEvent.DialogDismissed) },
+                    onClick  = { onEvent(ConnectEvent.DialogDismissed) },
                     modifier = Modifier.weight(1f)
                 ) {
                     Text("Cancel", color = textColor)
@@ -126,9 +118,9 @@ fun JoinRoomDialog(
 
                 if (state.needsPassword) {
                     Button(
-                        onClick = { onEvent(ConnectEvent.PasswordSubmitted(passwordInput)) },
-                        enabled = passwordInput.isNotBlank(),
-                        colors = buttonColors,
+                        onClick  = { onEvent(ConnectEvent.PasswordSubmitted(passwordInput)) },
+                        enabled  = passwordInput.isNotBlank(),
+                        colors   = buttonColors,
                         modifier = Modifier.weight(1f)
                     ) {
                         Text("Connect")

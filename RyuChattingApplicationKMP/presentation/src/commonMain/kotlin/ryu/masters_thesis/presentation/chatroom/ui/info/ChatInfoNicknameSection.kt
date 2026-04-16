@@ -12,19 +12,22 @@ import ryu.masters_thesis.presentation.chatroom.domain.ChatRoomEvent
 fun ChatInfoNicknameSection(
     nicknames: Map<String, String>,
     onEvent: (ChatRoomEvent) -> Unit,
-    textColor: Color,
-    buttonColors: ButtonColors,
+    // textColor, buttonColors ← odebráno
 ) {
+    val textColor    = MaterialTheme.colorScheme.onSurface
+    val buttonColors = ButtonDefaults.buttonColors(
+        containerColor = MaterialTheme.colorScheme.primary,
+        contentColor   = MaterialTheme.colorScheme.onPrimary,
+    )
+
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            // TODO DUMMY: překlad hardcoded
             text  = "Nicknames",
             style = MaterialTheme.typography.titleSmall,
             color = textColor,
         )
         Spacer(modifier = Modifier.height(8.dp))
 
-        // TODO DUMMY: seznam userů prázdný dokud nebude BluetoothController z :core dostupný
         if (nicknames.isEmpty()) {
             Text(
                 text  = "No users connected",

@@ -15,13 +15,15 @@ fun ChatInfoQrSection(
     roomId: String,
     showQrDialog: Boolean,
     onEvent: (ChatRoomEvent) -> Unit,
-    isDark: Boolean,
-    textColor: Color,
-    buttonColors: ButtonColors,
 ) {
+    val textColor    = MaterialTheme.colorScheme.onSurface
+    val buttonColors = ButtonDefaults.buttonColors(
+        containerColor = MaterialTheme.colorScheme.primary,
+        contentColor   = MaterialTheme.colorScheme.onPrimary,
+    )
+
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            // TODO DUMMY: překlad hardcoded
             text  = "Room QR Code",
             style = MaterialTheme.typography.titleSmall,
             color = textColor,
@@ -39,7 +41,7 @@ fun ChatInfoQrSection(
             QrCodeDialog(
                 roomId    = roomId,
                 password  = "",
-                isDark    = isDark,
+                // isDark ← odebráno, QrCodeDialog také potřebuje úpravu
                 onDismiss = { onEvent(ChatRoomEvent.QrDialogDismissed) },
             )
         }

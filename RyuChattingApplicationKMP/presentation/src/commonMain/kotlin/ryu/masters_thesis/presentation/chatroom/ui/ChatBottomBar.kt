@@ -10,7 +10,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import ryu.masters_thesis.presentation.chatroom.domain.ChatRoomEvent
 
@@ -18,10 +17,9 @@ import ryu.masters_thesis.presentation.chatroom.domain.ChatRoomEvent
 fun ChatBottomBar(
     messageInput: String,
     onEvent: (ChatRoomEvent) -> Unit,
-    isDark: Boolean,
 ) {
-    val surfaceColor = if (isDark) Color(0xFF1E1E1E) else Color(0xFFF5F5F5)
-    val iconColor    = if (isDark) Color.White       else Color.Black
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val iconColor    = MaterialTheme.colorScheme.onSurface
 
     Row(
         modifier = Modifier
@@ -32,7 +30,6 @@ fun ChatBottomBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        // TODO DUMMY: file picker až bude :core dostupný
         IconButton(onClick = { onEvent(ChatRoomEvent.AttachFileClicked) }) {
             Icon(Icons.Default.AddCircle, contentDescription = "Příloha", tint = iconColor)
         }

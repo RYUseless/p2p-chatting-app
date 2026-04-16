@@ -14,18 +14,18 @@ fun ChatInfoWhitelistSection(
     whitelist: List<String>,
     nicknames: Map<String, String>,
     onEvent: (ChatRoomEvent) -> Unit,
-    textColor: Color,
+    // textColor ← odebráno
 ) {
+    val textColor = MaterialTheme.colorScheme.onSurface
+
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            // TODO DUMMY: překlad hardcoded
             text  = "Whitelist",
             style = MaterialTheme.typography.titleSmall,
             color = textColor,
         )
         Spacer(modifier = Modifier.height(8.dp))
 
-        // TODO DUMMY: seznam userů prázdný dokud nebude BluetoothController z :core dostupný
         if (nicknames.isEmpty()) {
             Text(
                 text  = "No users connected",

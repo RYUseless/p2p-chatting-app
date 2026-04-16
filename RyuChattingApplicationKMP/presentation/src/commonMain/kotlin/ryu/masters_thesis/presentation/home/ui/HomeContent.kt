@@ -13,9 +13,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import ryu.masters_thesis.core.configuration.getTranslations
 import ryu.masters_thesis.presentation.component.ui.ChatRoomItem
+import ryu.masters_thesis.presentation.component.ui.LocalAppSettings
 import ryu.masters_thesis.presentation.home.domain.HomeEvent
 import ryu.masters_thesis.presentation.home.implementation.HomeState
 
@@ -23,27 +24,22 @@ import ryu.masters_thesis.presentation.home.implementation.HomeState
 fun HomeContent(
     state: HomeState,
     onEvent: (HomeEvent) -> Unit,
-    // TODO DUMMY: isDark nahradit AppSettings/Theme systémem až bude dostupný
-    isDark: Boolean = false,
 ) {
-    val backgroundColor = if (isDark) Color(0xFF121212) else Color(0xFFFFFFFF)
-    val surfaceColor    = if (isDark) Color(0xFF1E1E1E) else Color(0xFFF5F5F5)
-    val textColor       = if (isDark) Color.White       else Color.Black
-    val borderColor     = if (isDark) Color(0xFF333333) else Color(0xFFDDDDDD)
-    val buttonColors    = ButtonDefaults.buttonColors(
-        containerColor = if (isDark) Color.White else Color.Black,
-        contentColor   = if (isDark) Color.Black else Color.White
+    val settings          = LocalAppSettings.current
+    val t                 = getTranslations(settings.language)
+    val backgroundColor   = MaterialTheme.colorScheme.background
+    val surfaceColor      = MaterialTheme.colorScheme.surface
+    val textColor         = MaterialTheme.colorScheme.onSurface
+    val borderColor       = MaterialTheme.colorScheme.outlineVariant
+    val buttonColors      = ButtonDefaults.buttonColors(
+        containerColor = MaterialTheme.colorScheme.primary,
+        contentColor   = MaterialTheme.colorScheme.onPrimary,
     )
 
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Jednorázové chybové eventy
-    LaunchedEffect(Unit) {
-        // TODO: napojit na screenModel.oneTimeEvents přes HomeScreen
-    }
-
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost   = { SnackbarHost(snackbarHostState) },
         containerColor = backgroundColor,
     ) { padding ->
         Column(
@@ -53,35 +49,32 @@ fun HomeContent(
                 .background(backgroundColor),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-
-            // Header – Logo + Settings
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(0.3f)
             ) {
                 Text(
-                    text = "Logo",
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = textColor,
+                    text     = "~ Ryu's chatting app ~",
+                    style    = MaterialTheme.typography.headlineLarge,
+                    color    = textColor,
                     modifier = Modifier.align(Alignment.Center)
                 )
                 IconButton(
-                    onClick = { onEvent(HomeEvent.SettingsClicked) },
+                    onClick  = { onEvent(HomeEvent.SettingsClicked) },
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(8.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.Settings,
-                        contentDescription = "Settings",
-                        tint = textColor,
-                        modifier = Modifier.size(24.dp)
+                        imageVector        = Icons.Filled.Settings,
+                        contentDescription = t.settingsTitle,
+                        tint               = textColor,
+                        modifier           = Modifier.size(24.dp)
                     )
                 }
             }
 
-            // Seznam chat roomů
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -91,9 +84,8 @@ fun HomeContent(
                     .clip(RoundedCornerShape(8.dp))
             ) {
                 Text(
-                    // TODO DUMMY: překlady hardcoded, nahradit až bude i18n dostupné
-                    text = "Saved chats",
-                    style = MaterialTheme.typography.titleMedium,
+                    text     = t.savedChats,
+                    style    = MaterialTheme.typography.titleMedium,
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(surfaceColor)
@@ -105,7 +97,7 @@ fun HomeContent(
                 when {
                     state.isLoading -> {
                         Box(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier         = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
                             CircularProgressIndicator(color = textColor)
@@ -113,12 +105,11 @@ fun HomeContent(
                     }
                     state.chatRooms.isEmpty() -> {
                         Box(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier         = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                // TODO DUMMY: překlad hardcoded
-                                text = "No chats available",
+                                text  = t.noChatsAvailable,
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = textColor.copy(alpha = 0.5f)
                             )
@@ -132,10 +123,10 @@ fun HomeContent(
                         ) {
                             items(state.chatRooms) { room ->
                                 ChatRoomItem(
-                                    room = room,
-                                    textColor = textColor,
+                                    room         = room,
+                                    textColor    = textColor,
                                     surfaceColor = surfaceColor,
-                                    onClick = { onEvent(HomeEvent.RoomClicked(room)) }
+                                    onClick      = { onEvent(HomeEvent.RoomClicked(room)) }
                                 )
                             }
                         }
@@ -143,7 +134,6 @@ fun HomeContent(
                 }
             }
 
-            // Spodní tlačítka
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -151,20 +141,18 @@ fun HomeContent(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Button(
-                    onClick = { onEvent(HomeEvent.ConnectClicked) },
+                    onClick  = { onEvent(HomeEvent.ConnectClicked) },
                     modifier = Modifier.weight(1f),
-                    colors = buttonColors
+                    colors   = buttonColors
                 ) {
-                    // TODO DUMMY: překlad hardcoded
-                    Text("Connect", maxLines = 1)
+                    Text(t.buttonConnect, maxLines = 1)
                 }
                 Button(
-                    onClick = { onEvent(HomeEvent.CreateClicked) },
+                    onClick  = { onEvent(HomeEvent.CreateClicked) },
                     modifier = Modifier.weight(1f),
-                    colors = buttonColors
+                    colors   = buttonColors
                 ) {
-                    // TODO DUMMY: překlad hardcoded
-                    Text("Create", maxLines = 1)
+                    Text(t.buttonCreate, maxLines = 1)
                 }
             }
         }

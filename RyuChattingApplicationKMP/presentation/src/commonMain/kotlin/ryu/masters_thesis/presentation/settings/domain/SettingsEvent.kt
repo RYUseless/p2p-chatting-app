@@ -1,8 +1,10 @@
 package ryu.masters_thesis.presentation.settings.domain
 
-// Všechny akce které může uživatel na SettingsScreen provést
+import ryu.masters_thesis.core.configuration.AppLanguage
+import ryu.masters_thesis.core.configuration.AppTheme
+
 sealed class SettingsEvent {
-    data class LanguageChanged(val language: String) : SettingsEvent()
-    data class ThemeChanged(val theme: String) : SettingsEvent()
+    data class LanguageChanged(val language: AppLanguage) : SettingsEvent()
+    data class ThemeChanged(val theme: AppTheme) : SettingsEvent()
     object DismissClicked : SettingsEvent()
 }

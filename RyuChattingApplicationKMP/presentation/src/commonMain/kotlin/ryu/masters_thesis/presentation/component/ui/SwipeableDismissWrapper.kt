@@ -10,11 +10,11 @@ import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.anchoredDraggable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -22,16 +22,12 @@ import kotlin.math.roundToInt
 
 enum class DismissValue { Center, DismissedLeft, DismissedRight }
 
-// Sdílený swipe wrapper – obaluje ConnectScreen, CreateScreen, SettingsScreen
-// onDismiss = navigator.pop() z Voyageru
 @Composable
 fun SwipeableDismissWrapper(
     onDismiss: () -> Unit,
-    // TODO DUMMY: isDark nahradit Theme systémem až bude dostupný
-    isDark: Boolean = false,
     content: @Composable BoxScope.() -> Unit,
 ) {
-    val backgroundColor = if (isDark) Color(0xFF121212) else Color.White
+    val backgroundColor = MaterialTheme.colorScheme.surface  // ← z theme
 
     val state = remember {
         AnchoredDraggableState(initialValue = DismissValue.Center)
@@ -67,7 +63,7 @@ fun SwipeableDismissWrapper(
                 IntOffset(state.requireOffset().roundToInt(), 0)
             }
             .anchoredDraggable(
-                state = state,
+                state       = state,
                 orientation = Orientation.Horizontal,
                 flingBehavior = flingBehavior
             ),

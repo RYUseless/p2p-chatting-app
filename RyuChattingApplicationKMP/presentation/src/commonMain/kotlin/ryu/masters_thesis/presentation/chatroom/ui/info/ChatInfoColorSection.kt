@@ -26,11 +26,12 @@ private val COLOR_PALETTE = listOf(
 fun ChatInfoColorSection(
     currentColorHex: String,
     onEvent: (ChatRoomEvent) -> Unit,
-    textColor: Color,
+    // textColor ← odebráno
 ) {
+    val textColor = MaterialTheme.colorScheme.onSurface
+
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            // TODO DUMMY: překlad hardcoded
             text  = "Chat color",
             style = MaterialTheme.typography.titleSmall,
             color = textColor,
