@@ -33,6 +33,6 @@ dependencyResolutionManagement {
 
 include(":composeApp")
 include(":core")
-include(":features")
+include(":feature")
 include(":presentation")
 include(":data")

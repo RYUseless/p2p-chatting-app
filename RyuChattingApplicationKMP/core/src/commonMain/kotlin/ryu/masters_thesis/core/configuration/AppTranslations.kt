@@ -31,6 +31,12 @@ data class AppTranslations(
     // CreateScreen
     val createRoomName: String,
     val createRoomQR: String,
+
+    //new values, sort later
+    val connectSearchEnded: String,
+    val createRoomPassword: String,
+    val createRoomCreate: String,
+    val bluetoothPermissionsRequired: String,
 )
 
 val TranslationsMap = mapOf(
@@ -56,6 +62,10 @@ val TranslationsMap = mapOf(
         settingsMaxPeersLabel          = "Max peers:",
         createRoomName                 = "Room Name",
         createRoomQR                   = "QR code for the room",
+        connectSearchEnded             = "Search ended",
+        createRoomPassword             = "Room Password",
+        createRoomCreate               = "Create room",
+        bluetoothPermissionsRequired   = "Bluetooth permissions required",
     ),
     AppLanguage.CZECH to AppTranslations(
         close                          = "Zavřít",
@@ -79,6 +89,10 @@ val TranslationsMap = mapOf(
         settingsMaxPeersLabel          = "Max. peers:",
         createRoomName                 = "Pojmenování chatu:",
         createRoomQR                   = "QR kód pro místnost",
+        connectSearchEnded             = "Hledání ukončeno",
+        createRoomPassword             = "Heslo místnosti",
+        createRoomCreate               = "Vytvořit místnost",
+        bluetoothPermissionsRequired   = "Vyžadována Bluetooth oprávnění",
     ),
     AppLanguage.GERMAN to AppTranslations(
         close                          = "Schließen",
@@ -102,6 +116,10 @@ val TranslationsMap = mapOf(
         settingsMaxPeersLabel          = "Max. Peers:",
         createRoomName                 = "todo, name:",
         createRoomQR                   = "todo, qr",
+        connectSearchEnded             = "Suche beendet",
+        createRoomPassword             = "Raumpasswort",
+        createRoomCreate               = "Raum erstellen",
+        bluetoothPermissionsRequired   = "Bluetooth-Berechtigungen erforderlich",
     ),
     AppLanguage.POLISH to AppTranslations(
         close                          = "Zamknij",
@@ -125,6 +143,10 @@ val TranslationsMap = mapOf(
         settingsMaxPeersLabel          = "Maks. węzłów:",
         createRoomName                 = "todo, nazwa:",
         createRoomQR                   = "todo, qr",
+        connectSearchEnded             = "Wyszukiwanie zakończone",
+        createRoomPassword             = "Hasło pokoju",
+        createRoomCreate               = "Utwórz pokój",
+        bluetoothPermissionsRequired   = "Wymagane uprawnienia Bluetooth",
     ),
 )
 

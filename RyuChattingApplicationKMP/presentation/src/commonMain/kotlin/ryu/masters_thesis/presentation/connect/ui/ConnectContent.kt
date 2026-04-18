@@ -22,12 +22,12 @@ fun ConnectContent(
     state: ConnectState,
     onEvent: (ConnectEvent) -> Unit,
 ) {
-    val settings        = LocalAppSettings.current
-    val t               = getTranslations(settings.language)
-    val backgroundColor = MaterialTheme.colorScheme.background
-    val surfaceColor    = MaterialTheme.colorScheme.surface
-    val textColor       = MaterialTheme.colorScheme.onSurface
-    val buttonColors    = ButtonDefaults.buttonColors(
+    val settings             = LocalAppSettings.current
+    val textValueTranslation = getTranslations(settings.language)
+    val backgroundColor      = MaterialTheme.colorScheme.background
+    val surfaceColor         = MaterialTheme.colorScheme.surface
+    val textColor            = MaterialTheme.colorScheme.onSurface
+    val buttonColors         = ButtonDefaults.buttonColors(
         containerColor = MaterialTheme.colorScheme.primary,
         contentColor   = MaterialTheme.colorScheme.onPrimary,
     )
@@ -40,7 +40,7 @@ fun ConnectContent(
             .padding(bottom = 32.dp)
     ) {
         Text(
-            text      = t.connectTitle,
+            text      = textValueTranslation.connectTitle,
             style     = MaterialTheme.typography.headlineSmall,
             color     = textColor,
             modifier  = Modifier
@@ -51,8 +51,11 @@ fun ConnectContent(
 
         Text(
             text = if (state.isSearching)
-                t.connectTimeRemaining.replace("%d", state.remainingSeconds.toString())
-            else "Search ended", // TODO: přidat do AppTranslations
+                //search probiha → t - n time
+                textValueTranslation.connectTimeRemaining.replace("%d",
+                    state.remainingSeconds.toString())
+            //search time dobehl na t-0
+            else textValueTranslation.connectSearchEnded,
             style     = MaterialTheme.typography.titleSmall,
             modifier  = Modifier
                 .fillMaxWidth()
@@ -65,7 +68,7 @@ fun ConnectContent(
 
         if (state.scannedDevices.isEmpty()) {
             Text(
-                text     = t.connectNoRooms,
+                text     = textValueTranslation.connectNoRooms,
                 style    = MaterialTheme.typography.titleLarge,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -75,7 +78,7 @@ fun ConnectContent(
             Spacer(modifier = Modifier.weight(1f))
         } else {
             Text(
-                text = t.connectAvailableRooms.replace("%d", state.scannedDevices.size.toString()),
+                text = textValueTranslation.connectAvailableRooms.replace("%d", state.scannedDevices.size.toString()),
                 style    = MaterialTheme.typography.titleMedium,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -108,7 +111,7 @@ fun ConnectContent(
                 .padding(horizontal = 24.dp)
                 .padding(top = 16.dp)
         ) {
-            Text(t.close)
+            Text(textValueTranslation.close)
         }
     }
 

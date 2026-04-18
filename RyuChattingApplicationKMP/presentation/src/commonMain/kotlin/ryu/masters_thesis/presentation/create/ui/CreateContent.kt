@@ -20,11 +20,11 @@ fun CreateContent(
     state: CreateState,
     onEvent: (CreateEvent) -> Unit,
 ) {
-    val settings        = LocalAppSettings.current
-    val t               = getTranslations(settings.language)
-    val backgroundColor = MaterialTheme.colorScheme.background
-    val textColor       = MaterialTheme.colorScheme.onSurface
-    val buttonColors    = ButtonDefaults.buttonColors(
+    val settings              = LocalAppSettings.current
+    val textValueTranslation  = getTranslations(settings.language)
+    val backgroundColor       = MaterialTheme.colorScheme.background
+    val textColor             = MaterialTheme.colorScheme.onSurface
+    val buttonColors          = ButtonDefaults.buttonColors(
         containerColor = MaterialTheme.colorScheme.primary,
         contentColor   = MaterialTheme.colorScheme.onPrimary,
     )
@@ -37,7 +37,7 @@ fun CreateContent(
             .padding(bottom = 32.dp)
     ) {
         Text(
-            text      = t.createTitle,
+            text      = textValueTranslation.createTitle,
             style     = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
             color     = textColor,
             modifier  = Modifier.fillMaxWidth(),
@@ -50,7 +50,7 @@ fun CreateContent(
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                TextWidget(t.createRoomName)
+                TextWidget(textValueTranslation.createRoomName)
                 OutlinedTextField(
                     value         = state.roomName,
                     onValueChange = { onEvent(CreateEvent.RoomNameChanged(it)) },
@@ -60,7 +60,7 @@ fun CreateContent(
             Spacer(modifier = Modifier.height(8.dp))
 
             Column(modifier = Modifier.fillMaxWidth()) {
-                TextWidget("Room Password") // TODO: přidat do AppTranslations
+                TextWidget(textValueTranslation.createRoomPassword)
                 OutlinedTextField(
                     value                = state.password,
                     onValueChange        = { onEvent(CreateEvent.PasswordChanged(it)) },
@@ -81,7 +81,7 @@ fun CreateContent(
 
             if (!state.hasPermissions) {
                 Text(
-                    text      = "Bluetooth permissions required", // TODO: přidat do AppTranslations
+                    text      = textValueTranslation.bluetoothPermissionsRequired,
                     color     = MaterialTheme.colorScheme.error,
                     style     = MaterialTheme.typography.bodySmall,
                     modifier  = Modifier
@@ -97,7 +97,7 @@ fun CreateContent(
                 colors   = buttonColors,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Create room") // TODO: přidat do AppTranslations
+                Text(textValueTranslation.createRoomCreate)
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -108,7 +108,7 @@ fun CreateContent(
                 colors   = buttonColors,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(t.createRoomQR)
+                Text(textValueTranslation.createRoomQR)
             }
         }
 
@@ -119,7 +119,7 @@ fun CreateContent(
             colors   = buttonColors,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text(t.close)
+            Text(textValueTranslation.close)
         }
     }
 

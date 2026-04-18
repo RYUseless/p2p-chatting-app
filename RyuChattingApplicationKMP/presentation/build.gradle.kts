@@ -79,6 +79,7 @@ kotlin {
                 implementation("org.jetbrains.compose.material:material-icons-extended:1.7.3")
                 //call pro ostatni moduly:
                 implementation(project(":core"))
+                implementation(project(":feature"))
             }
         }
 

@@ -2,22 +2,40 @@ package ryu.masters_thesis.presentation.create.implementation
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import ryu.masters_thesis.feature.bluetooth.domain.BluetoothController
 import ryu.masters_thesis.presentation.create.domain.CreateRepository
+import kotlin.uuid.ExperimentalUuidApi
 
-// TODO DUMMY: veškerá data jsou dummy, až bude BluetoothController z :core dostupný nahradit
-class CreateRepositoryImpl : CreateRepository {
+class CreateRepositoryImpl(
+    private val controller: BluetoothController,
+) : CreateRepository {
 
-    private val _currentRoomId = MutableStateFlow<String?>("room-dummy-123")
-    private val _passwordError = MutableStateFlow<String?>(null)
+    // roomId generujeme lokálně před předáním controlleru
+    private val _currentRoomId = MutableStateFlow<String?>(null)
 
-    override fun getCurrentRoomId(): Flow<String?> = _currentRoomId
-    override fun getPasswordError(): Flow<String?> = _passwordError
+    override fun getCurrentRoomId(): Flow<String?> = controller.currentRoomId
+    override fun getPasswordError(): Flow<String?> = controller.passwordError
 
-    // TODO DUMMY: prázdné implementace, nahradit BluetoothController voláními
-    override suspend fun initRoomId() {}
-    override suspend fun setRoomId(roomName: String) {}
-    override suspend fun createRoom(password: String): String? = "room-dummy-123"
+    override suspend fun initRoomId() {
+        // roomId generuje controller interně při submitServerPassword
+        // zde jen resetujeme lokální stav
+        _currentRoomId.value = null
+    }
+
+    override suspend fun setRoomId(roomName: String) {
+        _currentRoomId.value = roomName
+    }
+
+    // kekel dostupný od 2.0 kotlinu, verze je 2.3.x, clearly furt experimental :)
+    @OptIn(ExperimentalUuidApi::class)
+    override suspend fun createRoom(password: String): String {
+        val channelId = _currentRoomId.value
+            ?: kotlin.uuid.Uuid.random().toString().substring(0, 8)
+        controller.submitServerPassword(channelId, password)
+        return channelId
+    }
+
     override fun cleanup() {
-        // TODO DUMMY: až bude BluetoothController z :core, zavolat unregisterReceiver() atd.
+        controller.cleanup()
     }
 }

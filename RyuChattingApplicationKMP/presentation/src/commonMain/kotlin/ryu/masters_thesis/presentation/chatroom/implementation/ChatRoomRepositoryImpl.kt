@@ -1,38 +1,50 @@
 package ryu.masters_thesis.presentation.chatroom.implementation
 
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import ryu.masters_thesis.feature.bluetooth.domain.BluetoothController
 import ryu.masters_thesis.presentation.chatroom.domain.ChatMessage
 import ryu.masters_thesis.presentation.chatroom.domain.ChatRoomRepository
 
-// TODO DUMMY: veškerá data jsou dummy, až bude BluetoothController z :core dostupný nahradit
-class ChatRoomRepositoryImpl : ChatRoomRepository {
+class ChatRoomRepositoryImpl(
+    private val controller: BluetoothController,
+    private val channelId:  String,
+) : ChatRoomRepository {
 
-    private val _messages = MutableStateFlow(
-        listOf(
-            ChatMessage(id = "1", text = "Bogos Binted?", time = "12:00", isMe = false),
-            ChatMessage(id = "2", text = "huh?",          time = "12:01", isMe = true),
-            ChatMessage(id = "3", text = "worp?",          time = "12:02", isMe = false),
-            ChatMessage(id = "4", text = "👽",             time = "12:03", isMe = true),
-        )
-    )
+    override fun getMessages(): Flow<List<ChatMessage>> =
+        controller.channelMessages.map { map ->
+            map[channelId]?.mapIndexed { index, msg ->
+                ChatMessage(
+                    id   = index.toString(),
+                    text = msg.content,
+                    time = formatTimestamp(msg.timestamp),
+                    isMe = msg.sender == "You",
+                )
+            } ?: emptyList()
+        }
 
-    override fun getMessages(): Flow<List<ChatMessage>>  = _messages
-    override fun getIsConnected(): Flow<Boolean>         = flowOf(true)
-    override fun getIsVerified(): Flow<Boolean>          = flowOf(true)
-    override fun getCurrentRoomId(): Flow<String?>       = flowOf("room-dummy-123")
+    override fun getIsConnected(): Flow<Boolean>   = controller.isConnected
+    override fun getIsVerified(): Flow<Boolean>    = controller.isVerified
+    override fun getCurrentRoomId(): Flow<String?> = controller.currentRoomId
 
-    // TODO DUMMY: prázdné implementace, nahradit BluetoothController voláními
     override suspend fun sendMessage(text: String) {
-        val new = ChatMessage(
-            id     = (_messages.value.size + 1).toString(),
-            text   = text,
-            time   = "now",
-            isMe   = true,
-        )
-        _messages.value = _messages.value + new
+        controller.sendMessage(channelId, text)
     }
-    override suspend fun sendFile(fileName: String, bytes: ByteArray) {}
-    override fun cleanup() {}
+
+    override suspend fun sendFile(fileName: String, bytes: ByteArray) {
+        // TODO: file transfer -- posilani fotek a dalsich picovin
+        // -- nizsi priorita --
+    }
+
+    override fun cleanup() {
+        controller.cleanup()
+    }
+
+    private fun formatTimestamp(timestamp: Long): String {
+        if (timestamp == 0L) return ""
+        val totalSeconds = timestamp / 1000
+        val hours   = (totalSeconds / 3600) % 24
+        val minutes = (totalSeconds / 60) % 60
+        return "${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}"
+    }
 }

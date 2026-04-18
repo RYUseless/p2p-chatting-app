@@ -1,32 +1,54 @@
 package ryu.masters_thesis.presentation.connect.implementation
 
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import ryu.masters_thesis.feature.bluetooth.domain.BluetoothController
+import ryu.masters_thesis.feature.bluetooth.domain.BluetoothDevice
 import ryu.masters_thesis.presentation.connect.domain.ConnectRepository
 import ryu.masters_thesis.presentation.connect.domain.ScannedDeviceUiModel
 
-// TODO DUMMY: veškerá data jsou dummy, až bude BluetoothController z :core dostupný nahradit
-class ConnectRepositoryImpl : ConnectRepository {
+class ConnectRepositoryImpl(
+    private val controller: BluetoothController,
+) : ConnectRepository {
 
-    private val _scannedDevices = MutableStateFlow<List<ScannedDeviceUiModel>>(
-        listOf(
-            ScannedDeviceUiModel(address = "AA:BB:CC:DD:EE:01", name = "Device 1", roomId = "Room Alpha"),
-            ScannedDeviceUiModel(address = "AA:BB:CC:DD:EE:02", name = "Device 2", roomId = null),
+    override fun getScannedDevices(): Flow<List<ScannedDeviceUiModel>> =
+        controller.scannedDevices.map { devices ->
+            devices.map { d ->
+                ScannedDeviceUiModel(
+                    address = d.address,
+                    name    = d.name,
+                    roomId  = d.roomId,
+                )
+            }
+        }
+
+    override fun getIsConnected(): Flow<Boolean>  = controller.isConnected
+    override fun getIsVerified(): Flow<Boolean>   = controller.isVerified
+    override fun getIsSearching(): Flow<Boolean>  = controller.isSearching
+    override fun getCurrentRoomId(): Flow<String?> = controller.currentRoomId
+    override fun getNeedsPassword(): Flow<Boolean> = controller.needsPassword
+    override fun getPasswordError(): Flow<String?> = controller.passwordError
+
+    override suspend fun startClientMode() {
+        controller.startClientMode()
+    }
+
+    override suspend fun connectToDevice(device: ScannedDeviceUiModel) {
+        controller.connectToDevice(
+            BluetoothDevice(
+                name    = device.name,
+                address = device.address,
+                roomId  = device.roomId,
+            )
         )
-    )
+    }
 
-    override fun getScannedDevices(): Flow<List<ScannedDeviceUiModel>> = _scannedDevices
-    override fun getIsConnected(): Flow<Boolean> = flowOf(false)
-    override fun getIsVerified(): Flow<Boolean> = flowOf(false)
-    override fun getIsSearching(): Flow<Boolean> = flowOf(true)
-    override fun getCurrentRoomId(): Flow<String?> = flowOf(null)
-    override fun getNeedsPassword(): Flow<Boolean> = flowOf(false)
-    override fun getPasswordError(): Flow<String?> = flowOf(null)
+    override suspend fun submitPassword(password: String) {
+        val channelId = controller.currentRoomId.value ?: return
+        controller.submitClientPassword(channelId, password)
+    }
 
-    // TODO DUMMY: prázdné implementace, nahradit BluetoothController voláními
-    override suspend fun startClientMode() {}
-    override suspend fun connectToDevice(device: ScannedDeviceUiModel) {}
-    override suspend fun submitPassword(password: String) {}
-    override fun unregisterReceiver() {}
+    override fun unregisterReceiver() {
+        controller.unregisterReceiver()
+    }
 }

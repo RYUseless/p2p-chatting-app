@@ -65,6 +65,8 @@ kotlin {
                 // Add KMP dependencies here
                 implementation(compose.runtime)
                 implementation(compose.foundation)
+                //security
+                implementation("androidx.security:security-crypto:1.1.0-alpha06")
             }
         }
 

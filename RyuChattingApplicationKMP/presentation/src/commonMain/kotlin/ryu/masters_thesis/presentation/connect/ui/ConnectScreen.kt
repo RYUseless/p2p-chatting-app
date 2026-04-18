@@ -5,6 +5,8 @@ import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import ryu.masters_thesis.presentation.chatroom.domain.BluetoothControllerSingleton
+import ryu.masters_thesis.presentation.chatroom.domain.NoopBluetoothController
 import ryu.masters_thesis.presentation.chatroom.ui.ChatRoomScreen
 import ryu.masters_thesis.presentation.component.ui.SwipeableDismissWrapper
 import ryu.masters_thesis.presentation.connect.domain.ConnectOneTimeEvent
@@ -17,8 +19,14 @@ object ConnectScreen : Screen {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
 
-        // TODO DUMMY: ConnectRepositoryImpl injektovat přes DI až bude k dispozici
-        val screenModel = rememberScreenModel { ConnectScreenModel(ConnectRepositoryImpl()) }
+        // TODO DI: BluetoothController předat přes DI místo singletonu
+        val screenModel = rememberScreenModel {
+            ConnectScreenModel(
+                ConnectRepositoryImpl(
+                    controller = BluetoothControllerSingleton.instance ?: NoopBluetoothController,
+                )
+            )
+        }
         val state by screenModel.state.collectAsState()
 
         LaunchedEffect(Unit) {
@@ -35,7 +43,7 @@ object ConnectScreen : Screen {
             onDismiss = { navigator.pop() }
         ) {
             ConnectContent(
-                state = state,
+                state   = state,
                 onEvent = screenModel::onEvent,
             )
         }
