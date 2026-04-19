@@ -36,7 +36,7 @@ object ConnectScreen : Screen {
             screenModel.restartScanning()
             screenModel.oneTimeEvents.collect { event ->
                 when (event) {
-                    is ConnectOneTimeEvent.NavigateToChat -> navigator.push(ChatRoomScreen(event.roomId))
+                    is ConnectOneTimeEvent.NavigateToChat -> navigator.push(ChatRoomScreen(event.roomId, event.password))
                     is ConnectOneTimeEvent.Dismiss        -> navigator.pop()
                     is ConnectOneTimeEvent.ShowError      -> navigator.pop()
                 }

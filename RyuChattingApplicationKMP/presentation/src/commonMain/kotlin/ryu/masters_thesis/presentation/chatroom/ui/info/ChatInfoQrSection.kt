@@ -13,6 +13,7 @@ import ryu.masters_thesis.presentation.create.ui.QrCodeDialog
 @Composable
 fun ChatInfoQrSection(
     roomId: String,
+    password: String,
     showQrDialog: Boolean,
     onEvent: (ChatRoomEvent) -> Unit,
 ) {
@@ -40,8 +41,7 @@ fun ChatInfoQrSection(
         if (showQrDialog) {
             QrCodeDialog(
                 roomId    = roomId,
-                password  = "",
-                // isDark ← odebráno, QrCodeDialog také potřebuje úpravu
+                password  = password,
                 onDismiss = { onEvent(ChatRoomEvent.QrDialogDismissed) },
             )
         }

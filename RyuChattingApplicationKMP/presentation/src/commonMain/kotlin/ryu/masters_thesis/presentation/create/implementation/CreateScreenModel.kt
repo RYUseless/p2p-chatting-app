@@ -66,7 +66,7 @@ class CreateScreenModel(
             val roomId = repository.createRoom(state.password)
             _state.update { it.copy(serverStarted = true) }
             if (roomId != null) {
-                _oneTimeEvents.emit(CreateOneTimeEvent.NavigateToChat(roomId))
+                _oneTimeEvents.emit(CreateOneTimeEvent.NavigateToChat(roomId, state.password))
             }
         }
     }

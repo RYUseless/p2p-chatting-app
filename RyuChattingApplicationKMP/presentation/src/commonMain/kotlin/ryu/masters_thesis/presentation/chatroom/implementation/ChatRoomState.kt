@@ -5,6 +5,7 @@ import ryu.masters_thesis.presentation.chatroom.domain.ChatMessage
 // Immutable snapshot – jediný zdroj pravdy pro ChatRoomContent
 data class ChatRoomState(
     val roomName: String = "",
+    val roomPassword: String = "",
     val messages: List<ChatMessage> = emptyList(),
     val messageInput: String = "",
     val isConnected: Boolean = false,

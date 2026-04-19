@@ -32,7 +32,7 @@ object CreateScreen : Screen {
         LaunchedEffect(Unit) {
             screenModel.oneTimeEvents.collect { event ->
                 when (event) {
-                    is CreateOneTimeEvent.NavigateToChat -> navigator.push(ChatRoomScreen(event.roomId))
+                    is CreateOneTimeEvent.NavigateToChat -> navigator.push(ChatRoomScreen(event.roomId, event.password))
                     is CreateOneTimeEvent.Dismiss        -> navigator.pop()
                     is CreateOneTimeEvent.ShowError      -> Unit
                 }

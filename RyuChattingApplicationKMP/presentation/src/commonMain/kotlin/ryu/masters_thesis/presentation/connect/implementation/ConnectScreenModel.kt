@@ -5,6 +5,7 @@ import cafe.adriel.voyager.core.model.screenModelScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import ryu.masters_thesis.feature.bluetooth.domain.BluetoothConstants
 import ryu.masters_thesis.presentation.connect.domain.ConnectEvent
 import ryu.masters_thesis.presentation.connect.domain.ConnectOneTimeEvent
 import ryu.masters_thesis.presentation.connect.domain.ConnectRepository
@@ -42,27 +43,38 @@ class ConnectScreenModel(
     }
 
     private fun observeBluetoothState() {
+        // State update
         screenModelScope.launch {
             combine(
                 repository.getScannedDevices(),
                 repository.getIsConnected(),
                 repository.getIsVerified(),
                 repository.getIsSearching(),
-                repository.getCurrentRoomId(),
-            ) { devices, connected, verified, searching, roomId ->
-                // Navigace do chatu po úspěšném ověření
-                if (verified && roomId != null) {
-                    _oneTimeEvents.emit(ConnectOneTimeEvent.NavigateToChat(roomId))
-                }
-                _state.value.copy(
+            ) { devices, connected, verified, searching ->
+                ConnectState(
                     scannedDevices = devices,
                     isConnected = connected,
                     isVerified = verified,
                     isSearching = searching,
+                    needsPassword = _state.value.needsPassword,
+                    passwordError = _state.value.passwordError,
+                    selectedDevice = _state.value.selectedDevice,
+                    remainingSeconds = _state.value.remainingSeconds,
                 )
-            }.collect { newState ->
-                _state.value = newState
-            }
+            }.collect { _state.value = it }
+        }
+
+        // Navigation trigger
+        screenModelScope.launch {
+            combine(
+                repository.getIsVerified(),
+                repository.getCurrentRoomId(),
+                repository.getPassword(),
+            ) { verified, roomId, password ->
+                if (verified && roomId != null && password != null) {
+                    _oneTimeEvents.emit(ConnectOneTimeEvent.NavigateToChat(roomId, password))
+                }
+            }.collect()
         }
 
         screenModelScope.launch {
@@ -89,8 +101,8 @@ class ConnectScreenModel(
 
     private fun startCountdown() {
         screenModelScope.launch {
-            // TODO DUMMY: 30s hardcoded, nahradit config hodnotou až bude dostupná
-            for (i in 30 downTo 0) {
+            val timeoutSeconds = (BluetoothConstants.DISCOVERY_TIMEOUT_MS / 1000).toInt()
+            for (i in timeoutSeconds downTo 0) {
                 _state.update { it.copy(remainingSeconds = i) }
                 delay(1000)
             }

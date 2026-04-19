@@ -100,6 +100,10 @@ kotlin {
                 // Add Android-specific dependencies here. Note that this source set depends on
                 // commonMain by default and will correctly pull the Android artifacts of any KMP
                 // dependencies declared in commonMain.
+                //implementation("androidx.activity:activity-compose:1.10.1")
+                //implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.0")
+                implementation(libs.androidx.activity.compose)
+                implementation(libs.androidx.lifecycle.runtimeCompose)
             }
         }
 

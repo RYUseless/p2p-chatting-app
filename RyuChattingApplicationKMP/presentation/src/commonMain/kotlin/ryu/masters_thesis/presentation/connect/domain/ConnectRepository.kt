@@ -10,6 +10,7 @@ interface ConnectRepository {
     fun getIsVerified(): Flow<Boolean>
     fun getIsSearching(): Flow<Boolean>
     fun getCurrentRoomId(): Flow<String?>
+    fun getPassword(): Flow<String?>
     fun getNeedsPassword(): Flow<Boolean>
     fun getPasswordError(): Flow<String?>
     suspend fun startClientMode()

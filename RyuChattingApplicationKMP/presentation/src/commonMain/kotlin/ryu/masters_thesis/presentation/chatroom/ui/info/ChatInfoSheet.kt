@@ -49,9 +49,9 @@ fun ChatInfoSheet(
             state.currentRoomId?.let { roomId ->
                 ChatInfoQrSection(
                     roomId       = roomId,
+                    password     = state.roomPassword,
                     showQrDialog = state.showQrDialog,
                     onEvent      = onEvent,
-                    // isDark, textColor, buttonColors ← odebráno
                 )
                 HorizontalDivider()
             }

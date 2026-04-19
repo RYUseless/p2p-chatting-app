@@ -10,11 +10,12 @@ import ryu.masters_thesis.presentation.chatroom.domain.ChatRoomRepository
 
 class ChatRoomScreenModel(
     private val roomName: String,
+    password: String,
     private val repository: ChatRoomRepository,
 ) : ScreenModel {
 
     // Stav UI – StateFlow, ChatRoomContent collectuje přes collectAsState()
-    private val _state = MutableStateFlow(ChatRoomState(roomName = roomName))
+    private val _state = MutableStateFlow(ChatRoomState(roomName = roomName, roomPassword = password,))
     val state: StateFlow<ChatRoomState> = _state.asStateFlow()
 
     // Jednorázové eventy – SharedFlow, UI poslouchá přes LaunchedEffect

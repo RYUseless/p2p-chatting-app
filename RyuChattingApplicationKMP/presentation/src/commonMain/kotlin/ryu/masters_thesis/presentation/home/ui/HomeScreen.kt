@@ -32,7 +32,7 @@ object HomeScreen : Screen {
                 when (event) {
                     is HomeOneTimeEvent.Navigate -> {
                         when (val navEvent = event.event) {
-                            is HomeEvent.RoomClicked     -> navigator.push(ChatRoomScreen(navEvent.room.name))
+                            is HomeEvent.RoomClicked -> { }
                             is HomeEvent.ConnectClicked  -> navigator.push(ConnectScreen)
                             is HomeEvent.CreateClicked   -> navigator.push(CreateScreen)
                             is HomeEvent.SettingsClicked -> navigator.push(SettingsScreen)

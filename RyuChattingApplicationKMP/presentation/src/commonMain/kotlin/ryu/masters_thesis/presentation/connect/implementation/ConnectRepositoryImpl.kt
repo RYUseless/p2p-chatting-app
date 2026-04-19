@@ -1,6 +1,8 @@
 package ryu.masters_thesis.presentation.connect.implementation
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothController
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothDevice
@@ -10,6 +12,8 @@ import ryu.masters_thesis.presentation.connect.domain.ScannedDeviceUiModel
 class ConnectRepositoryImpl(
     private val controller: BluetoothController,
 ) : ConnectRepository {
+    private val _password = MutableStateFlow<String?>(null)
+
 
     override fun getScannedDevices(): Flow<List<ScannedDeviceUiModel>> =
         controller.scannedDevices.map { devices ->
@@ -29,6 +33,7 @@ class ConnectRepositoryImpl(
     override fun getNeedsPassword(): Flow<Boolean> = controller.needsPassword
     override fun getPasswordError(): Flow<String?> = controller.passwordError
 
+    override fun getPassword(): Flow<String?> = _password.asStateFlow()
 
 
     override suspend fun startClientMode() {
@@ -47,6 +52,7 @@ class ConnectRepositoryImpl(
 
     override suspend fun submitPassword(password: String) {
         val channelId = controller.currentRoomId.value ?: return
+        _password.value = password  // ← uložit před odesláním
         controller.submitClientPassword(channelId, password)
     }
 

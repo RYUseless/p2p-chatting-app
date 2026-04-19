@@ -5,16 +5,24 @@ import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
+import kotlinx.coroutines.launch
 import ryu.masters_thesis.presentation.chatroom.domain.BluetoothControllerSingleton
 import ryu.masters_thesis.presentation.chatroom.domain.ChatRoomOneTimeEvent
 import ryu.masters_thesis.presentation.chatroom.implementation.ChatRoomRepositoryImpl
 import ryu.masters_thesis.presentation.chatroom.implementation.ChatRoomScreenModel
 
-data class ChatRoomScreen(val roomName: String) : Screen {
+data class ChatRoomScreen(
+    val roomName: String,
+    val password: String,
+    ) : Screen {
 
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
+
+        val scope = rememberCoroutineScope()
 
         // TODO DI: BluetoothController předat přes DI místo singletonu
         val screenModel = rememberScreenModel(tag = roomName) {
@@ -25,6 +33,7 @@ data class ChatRoomScreen(val roomName: String) : Screen {
 
             ChatRoomScreenModel(
                 roomName   = roomName,
+                password   = password,
                 repository = ChatRoomRepositoryImpl(
                     controller = controller,
                     channelId  = roomName,
@@ -36,10 +45,12 @@ data class ChatRoomScreen(val roomName: String) : Screen {
         // Reset spojení při opuštění ChatRoom
         DisposableEffect(Unit) {
             onDispose {
-                if (BluetoothControllerSingleton.server.isServer.value) {
-                    BluetoothControllerSingleton.server.cleanup()
-                } else {
-                    BluetoothControllerSingleton.client.resetConnection()
+                scope.launch(Dispatchers.IO) {
+                    if (BluetoothControllerSingleton.server.isServer.value) {
+                        BluetoothControllerSingleton.server.cleanup()
+                    } else {
+                        BluetoothControllerSingleton.client.resetConnection()
+                    }
                 }
             }
         }
