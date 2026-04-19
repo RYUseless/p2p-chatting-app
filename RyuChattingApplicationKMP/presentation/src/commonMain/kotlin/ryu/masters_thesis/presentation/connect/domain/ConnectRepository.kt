@@ -16,4 +16,7 @@ interface ConnectRepository {
     suspend fun connectToDevice(device: ScannedDeviceUiModel)
     suspend fun submitPassword(password: String)
     fun unregisterReceiver()
+
+    fun getConnectionError(): Flow<String?>
+    fun clearConnectionError()
 }

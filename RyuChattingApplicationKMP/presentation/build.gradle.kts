@@ -91,6 +91,12 @@ kotlin {
 
         androidMain {
             dependencies {
+                implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+                implementation("com.google.mlkit:barcode-scanning:17.3.0")
+                implementation("androidx.camera:camera-core:1.4.2")
+                implementation("androidx.camera:camera-camera2:1.4.2")
+                implementation("androidx.camera:camera-lifecycle:1.4.2")
+                implementation("androidx.camera:camera-view:1.4.2")
                 // Add Android-specific dependencies here. Note that this source set depends on
                 // commonMain by default and will correctly pull the Android artifacts of any KMP
                 // dependencies declared in commonMain.

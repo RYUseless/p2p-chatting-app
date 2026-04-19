@@ -15,6 +15,8 @@ interface BluetoothController {
     val connectedDeviceName: StateFlow<String?>
     val channelMessages:     StateFlow<Map<String, List<Message>>>
 
+    val connectionError: StateFlow<String?>
+    fun clearConnectionError()
     fun startClientMode()
     suspend fun connectToDevice(device: BluetoothDevice)
     fun submitClientPassword(channelId: String, password: String)
@@ -24,4 +26,6 @@ interface BluetoothController {
     fun verifyConnection(): Boolean
     fun unregisterReceiver()
     fun cleanup()
+
+    fun resetConnection()
 }

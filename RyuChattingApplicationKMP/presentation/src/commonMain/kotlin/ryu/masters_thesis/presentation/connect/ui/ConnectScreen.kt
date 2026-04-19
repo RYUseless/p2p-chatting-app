@@ -6,7 +6,6 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import ryu.masters_thesis.presentation.chatroom.domain.BluetoothControllerSingleton
-import ryu.masters_thesis.presentation.chatroom.domain.NoopBluetoothController
 import ryu.masters_thesis.presentation.chatroom.ui.ChatRoomScreen
 import ryu.masters_thesis.presentation.component.ui.SwipeableDismissWrapper
 import ryu.masters_thesis.presentation.connect.domain.ConnectOneTimeEvent
@@ -19,22 +18,27 @@ object ConnectScreen : Screen {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
 
+        //logísek
+        println("CONNECT controller = ${BluetoothControllerSingleton.client::class.qualifiedName}")
+
         // TODO DI: BluetoothController předat přes DI místo singletonu
         val screenModel = rememberScreenModel {
             ConnectScreenModel(
                 ConnectRepositoryImpl(
-                    controller = BluetoothControllerSingleton.instance ?: NoopBluetoothController,
+                    controller = BluetoothControllerSingleton.client,
                 )
             )
         }
         val state by screenModel.state.collectAsState()
 
         LaunchedEffect(Unit) {
+            //pridani dialogu pak
+            screenModel.restartScanning()
             screenModel.oneTimeEvents.collect { event ->
                 when (event) {
                     is ConnectOneTimeEvent.NavigateToChat -> navigator.push(ChatRoomScreen(event.roomId))
                     is ConnectOneTimeEvent.Dismiss        -> navigator.pop()
-                    is ConnectOneTimeEvent.ShowError      -> Unit
+                    is ConnectOneTimeEvent.ShowError      -> navigator.pop()
                 }
             }
         }

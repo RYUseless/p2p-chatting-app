@@ -23,7 +23,7 @@ object CreateScreen : Screen {
         val screenModel = rememberScreenModel {
             CreateScreenModel(
                 CreateRepositoryImpl(
-                    controller = BluetoothControllerSingleton.instance ?: NoopBluetoothController,
+                    controller = BluetoothControllerSingleton.server,
                 )
             )
         }

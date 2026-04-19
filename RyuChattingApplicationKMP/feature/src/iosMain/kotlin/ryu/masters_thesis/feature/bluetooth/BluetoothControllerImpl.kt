@@ -27,4 +27,5 @@ class BluetoothControllerImpl : BluetoothController {
     override fun verifyConnection(): Boolean                                   = false
     override fun unregisterReceiver()                                          = Unit
     override fun cleanup()                                                     = Unit
+    override fun resetConnection() = Unit
 }

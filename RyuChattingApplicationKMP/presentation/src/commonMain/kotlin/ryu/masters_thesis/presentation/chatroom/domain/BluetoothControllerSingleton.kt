@@ -5,13 +5,11 @@ import ryu.masters_thesis.feature.bluetooth.domain.BluetoothDevice
 import ryu.masters_thesis.feature.messages.domain.Message
 import kotlinx.coroutines.flow.MutableStateFlow
 
-//TODO : FULL DUMMY, PAK YEETNOUT DOPRDELE
-// TODO DI: nahradit Koin/jiným DI frameworkem
 object BluetoothControllerSingleton {
-    var instance: BluetoothController? = null
+    var server: BluetoothController = NoopBluetoothController
+    var client: BluetoothController = NoopBluetoothController
 }
 
-// Fallback — prázdná implementace pro případ že DI ještě není nastavené
 internal object NoopBluetoothController : BluetoothController {
     override val scannedDevices      = MutableStateFlow(emptyList<BluetoothDevice>())
     override val isConnected         = MutableStateFlow(false)
@@ -31,6 +29,9 @@ internal object NoopBluetoothController : BluetoothController {
     override fun sendMessage(channelId: String, text: String)              = Unit
     override fun getMessages(channelId: String): List<Message>             = emptyList()
     override fun verifyConnection(): Boolean                               = false
+    override fun resetConnection()                                         = Unit
     override fun unregisterReceiver()                                      = Unit
     override fun cleanup()                                                 = Unit
+    override val connectionError = MutableStateFlow<String?>(null)
+    override fun clearConnectionError() = Unit
 }

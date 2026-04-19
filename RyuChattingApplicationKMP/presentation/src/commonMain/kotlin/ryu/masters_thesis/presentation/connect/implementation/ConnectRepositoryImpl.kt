@@ -29,6 +29,8 @@ class ConnectRepositoryImpl(
     override fun getNeedsPassword(): Flow<Boolean> = controller.needsPassword
     override fun getPasswordError(): Flow<String?> = controller.passwordError
 
+
+
     override suspend fun startClientMode() {
         controller.startClientMode()
     }
@@ -51,4 +53,7 @@ class ConnectRepositoryImpl(
     override fun unregisterReceiver() {
         controller.unregisterReceiver()
     }
+
+    override fun getConnectionError(): Flow<String?> = controller.connectionError
+    override fun clearConnectionError() = controller.clearConnectionError()
 }

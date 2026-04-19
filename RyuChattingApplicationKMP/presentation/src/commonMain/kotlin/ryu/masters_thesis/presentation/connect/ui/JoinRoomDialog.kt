@@ -12,15 +12,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import ryu.masters_thesis.presentation.component.ui.QrCodeScanner
 import ryu.masters_thesis.presentation.connect.domain.ConnectEvent
 import ryu.masters_thesis.presentation.connect.domain.ScannedDeviceUiModel
 import ryu.masters_thesis.presentation.connect.implementation.ConnectState
 
 @Composable
 fun JoinRoomDialog(
-    device: ScannedDeviceUiModel,
-    state: ConnectState,
-    // isDark ← odebráno
+    device:  ScannedDeviceUiModel,
+    state:   ConnectState,
     onEvent: (ConnectEvent) -> Unit,
 ) {
     val backgroundColor = MaterialTheme.colorScheme.surface
@@ -40,17 +40,17 @@ fun JoinRoomDialog(
                 .clip(RoundedCornerShape(16.dp))
                 .background(backgroundColor)
                 .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
                 text  = "Connect to: ${device.displayName}",
                 style = MaterialTheme.typography.titleMedium,
-                color = textColor
+                color = textColor,
             )
             Text(
                 text  = device.address,
                 style = MaterialTheme.typography.labelSmall,
-                color = textColor.copy(alpha = 0.5f)
+                color = textColor.copy(alpha = 0.5f),
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -69,12 +69,13 @@ fun JoinRoomDialog(
                             .height(220.dp)
                             .clip(RoundedCornerShape(8.dp))
                             .background(Color.Black),
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Text(
-                            text      = "QR Scanner\n(TODO: platform impl)",
-                            color     = Color.White,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        QrCodeScanner(
+                            onResult = { scanned ->
+                                onEvent(ConnectEvent.QrScanned(scanned))
+                                showQrScanner = false
+                            }
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
@@ -83,20 +84,22 @@ fun JoinRoomDialog(
                     }
                 } else {
                     OutlinedTextField(
-                        value               = passwordInput,
-                        onValueChange       = { passwordInput = it },
-                        label               = { Text("Password") },
+                        value                = passwordInput,
+                        onValueChange        = { passwordInput = it },
+                        label                = { Text("Password") },
                         visualTransformation = PasswordVisualTransformation(),
-                        isError             = state.passwordError != null,
-                        supportingText      = {
-                            state.passwordError?.let { Text(it, color = Color.Red) }
+                        isError              = state.passwordError != null,
+                        supportingText       = {
+                            state.passwordError?.let {
+                                Text(it, color = MaterialTheme.colorScheme.error)
+                            }
                         },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     TextButton(
                         onClick  = { showQrScanner = true },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text("Scan QR code", color = textColor)
                     }
@@ -107,11 +110,11 @@ fun JoinRoomDialog(
 
             Row(
                 modifier              = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 OutlinedButton(
                     onClick  = { onEvent(ConnectEvent.DialogDismissed) },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     Text("Cancel", color = textColor)
                 }
@@ -121,7 +124,7 @@ fun JoinRoomDialog(
                         onClick  = { onEvent(ConnectEvent.PasswordSubmitted(passwordInput)) },
                         enabled  = passwordInput.isNotBlank(),
                         colors   = buttonColors,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
                     ) {
                         Text("Connect")
                     }

@@ -23,7 +23,6 @@ class ConnectScreenModel(
 
     init {
         observeBluetoothState()
-        startCountdown()
     }
 
     // Jediný vstupní bod pro UI akce
@@ -77,6 +76,15 @@ class ConnectScreenModel(
                 _state.update { it.copy(passwordError = error) }
             }
         }
+
+        screenModelScope.launch {
+            repository.getConnectionError().collect { error ->
+                if (error != null) {
+                    repository.clearConnectionError()
+                    _oneTimeEvents.emit(ConnectOneTimeEvent.ShowError(error))
+                }
+            }
+        }
     }
 
     private fun startCountdown() {
@@ -103,7 +111,15 @@ class ConnectScreenModel(
     }
 
     private fun onQrScanned(value: String) {
-        // QR hodnota se použije jako password
-        submitPassword(value)
+        val parts    = value.split("|", limit = 2)
+        val password = if (parts.size == 2) parts[1] else value
+        submitPassword(password)
+    }
+
+    fun restartScanning() {
+        screenModelScope.launch {
+            repository.startClientMode()
+        }
+        startCountdown()
     }
 }

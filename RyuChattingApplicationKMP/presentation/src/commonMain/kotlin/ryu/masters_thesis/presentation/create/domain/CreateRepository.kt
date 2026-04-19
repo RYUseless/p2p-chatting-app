@@ -11,4 +11,8 @@ interface CreateRepository {
     suspend fun createRoom(password: String): String?
     //cleanup
     fun cleanup()
+
+    //new kekel
+    fun getIsConnected(): Flow<Boolean>
+    fun getIsVerified(): Flow<Boolean>
 }

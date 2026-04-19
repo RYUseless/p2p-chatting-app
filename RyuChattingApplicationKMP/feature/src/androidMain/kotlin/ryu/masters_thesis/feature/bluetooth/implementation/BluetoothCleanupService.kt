@@ -1,6 +1,5 @@
 package ryu.masters_thesis.feature.bluetooth.implementation
 
-import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
@@ -12,6 +11,7 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.edit
+import ryu.masters_thesis.feature.bluetooth.domain.BluetoothConstants
 
 class BluetoothCleanupService : Service() {
 
@@ -22,10 +22,9 @@ class BluetoothCleanupService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        Log.d(BluetoothConstants.TAG_CLEANUP, "onCreate")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                "bt_channel", "Bluetooth", NotificationManager.IMPORTANCE_MIN,
-            )
+            val channel = NotificationChannel("bt_channel", "Bluetooth", NotificationManager.IMPORTANCE_MIN)
             getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
         }
         startForeground(
@@ -38,23 +37,23 @@ class BluetoothCleanupService : Service() {
         )
     }
 
-    @SuppressLint("MissingPermission")
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        Log.d("BluetoothCleanupService", "App removed, restoring BT name")
-
+        Log.i(BluetoothConstants.TAG_CLEANUP, "onTaskRemoved: app killed, restoring BT name")
         val adapter = (getSystemService(BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
         val prefs   = getSharedPreferences("bluetooth_state", MODE_PRIVATE)
         val saved   = originalDeviceName ?: prefs.getString("original_bt_name", null)
-
+        Log.d(BluetoothConstants.TAG_CLEANUP, "adapter=${adapter != null} savedName=$saved")
         if (saved != null && adapter != null) {
             try {
                 adapter.name = saved
-                Log.d("BluetoothCleanupService", "Restored: $saved")
+                Log.i(BluetoothConstants.TAG_CLEANUP, "BT name restored: $saved")
             } catch (e: SecurityException) {
-                Log.w("BluetoothCleanupService", "Cannot restore: ${e.message}")
+                Log.w(BluetoothConstants.TAG_CLEANUP, "Cannot restore BT name: ${e.message}")
             }
             prefs.edit { remove("original_bt_name") }
+        } else {
+            Log.w(BluetoothConstants.TAG_CLEANUP, "Nothing to restore: adapter=${adapter != null} savedName=$saved")
         }
         stopSelf()
     }

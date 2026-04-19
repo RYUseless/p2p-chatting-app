@@ -38,4 +38,7 @@ class CreateRepositoryImpl(
     override fun cleanup() {
         controller.cleanup()
     }
+
+    override fun getIsConnected(): Flow<Boolean> = controller.isConnected
+    override fun getIsVerified(): Flow<Boolean>  = controller.isVerified
 }

@@ -12,11 +12,9 @@ class CreateScreenModel(
     private val repository: CreateRepository,
 ) : ScreenModel {
 
-    // Stav UI – StateFlow, CreateContent collectuje přes collectAsState()
     private val _state = MutableStateFlow(CreateState())
     val state: StateFlow<CreateState> = _state.asStateFlow()
 
-    // Jednorázové eventy – SharedFlow, UI poslouchá přes LaunchedEffect
     private val _oneTimeEvents = MutableSharedFlow<CreateOneTimeEvent>()
     val oneTimeEvents: SharedFlow<CreateOneTimeEvent> = _oneTimeEvents.asSharedFlow()
 
@@ -25,7 +23,6 @@ class CreateScreenModel(
         initRoom()
     }
 
-    // Jediný vstupní bod pro UI akce
     fun onEvent(event: CreateEvent) {
         when (event) {
             is CreateEvent.RoomNameChanged   -> _state.update { it.copy(roomName = event.name) }
@@ -42,9 +39,10 @@ class CreateScreenModel(
         }
     }
 
-    // Zavolá se i při swipe dismiss nebo jiném opuštění screenu
     override fun onDispose() {
-        repository.cleanup()
+        if (!_state.value.serverStarted) {
+            repository.cleanup()
+        }
     }
 
     private fun observeRepository() {
@@ -60,16 +58,9 @@ class CreateScreenModel(
         }
     }
 
-    private fun initRoom() {
-        screenModelScope.launch {
-            repository.initRoomId()
-        }
-    }
-
     private fun createRoom() {
         val state = _state.value
         if (state.password.isEmpty()) return
-
         screenModelScope.launch {
             repository.setRoomId(state.roomName)
             val roomId = repository.createRoom(state.password)
@@ -79,4 +70,11 @@ class CreateScreenModel(
             }
         }
     }
+
+    private fun initRoom() {
+        screenModelScope.launch {
+            repository.initRoomId()
+        }
+    }
+
 }
