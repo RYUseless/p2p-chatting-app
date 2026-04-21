@@ -31,14 +31,15 @@ object ConnectScreen : Screen {
         }
         val state by screenModel.state.collectAsState()
 
+        //TODO: pak pridat dialog
         LaunchedEffect(Unit) {
-            //pridani dialogu pak
             screenModel.restartScanning()
             screenModel.oneTimeEvents.collect { event ->
                 when (event) {
                     is ConnectOneTimeEvent.NavigateToChat -> navigator.push(ChatRoomScreen(event.roomId, event.password))
                     is ConnectOneTimeEvent.Dismiss        -> navigator.pop()
                     is ConnectOneTimeEvent.ShowError      -> navigator.pop()
+                    is ConnectOneTimeEvent.Disconnected   -> { /* zůstaneme na ConnectScreen, UI se aktualizuje přes state */ }
                 }
             }
         }

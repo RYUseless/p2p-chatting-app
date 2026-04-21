@@ -6,9 +6,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothConstants
+import ryu.masters_thesis.feature.bluetooth.domain.ConnectionState
 import ryu.masters_thesis.presentation.connect.domain.ConnectEvent
 import ryu.masters_thesis.presentation.connect.domain.ConnectOneTimeEvent
 import ryu.masters_thesis.presentation.connect.domain.ConnectRepository
+import ryu.masters_thesis.presentation.connect.domain.ScannedDeviceUiModel
 
 class ConnectScreenModel(
     private val repository: ConnectRepository,
@@ -33,6 +35,7 @@ class ConnectScreenModel(
             is ConnectEvent.PasswordSubmitted -> submitPassword(event.password)
             is ConnectEvent.QrScanned         -> onQrScanned(event.value)
             is ConnectEvent.DialogDismissed   -> _state.update { it.copy(selectedDevice = null) }
+            is ConnectEvent.ReconnectClicked  -> screenModelScope.launch { repository.reconnect() }
             is ConnectEvent.DismissClicked    -> {
                 repository.unregisterReceiver()
                 screenModelScope.launch {
@@ -43,28 +46,31 @@ class ConnectScreenModel(
     }
 
     private fun observeBluetoothState() {
-        // State update
         screenModelScope.launch {
             combine(
                 repository.getScannedDevices(),
                 repository.getIsConnected(),
                 repository.getIsVerified(),
                 repository.getIsSearching(),
-            ) { devices, connected, verified, searching ->
+                repository.getConnectionState(),
+                repository.getCanReconnect(),
+            ) { values ->
                 ConnectState(
-                    scannedDevices = devices,
-                    isConnected = connected,
-                    isVerified = verified,
-                    isSearching = searching,
-                    needsPassword = _state.value.needsPassword,
-                    passwordError = _state.value.passwordError,
-                    selectedDevice = _state.value.selectedDevice,
+                    //TODO: vyresit unchecked resolve
+                    scannedDevices  = values[0] as List<ScannedDeviceUiModel>,
+                    isConnected     = values[1] as Boolean,
+                    isVerified      = values[2] as Boolean,
+                    isSearching     = values[3] as Boolean,
+                    connectionState = values[4] as ConnectionState,
+                    canReconnect    = values[5] as Boolean,
+                    needsPassword   = _state.value.needsPassword,
+                    passwordError   = _state.value.passwordError,
+                    selectedDevice  = _state.value.selectedDevice,
                     remainingSeconds = _state.value.remainingSeconds,
                 )
             }.collect { _state.value = it }
         }
 
-        // Navigation trigger
         screenModelScope.launch {
             combine(
                 repository.getIsVerified(),
@@ -94,6 +100,14 @@ class ConnectScreenModel(
                 if (error != null) {
                     repository.clearConnectionError()
                     _oneTimeEvents.emit(ConnectOneTimeEvent.ShowError(error))
+                }
+            }
+        }
+
+        screenModelScope.launch {
+            repository.getConnectionState().collect { state ->
+                if (state == ConnectionState.DISCONNECTED) {
+                    _oneTimeEvents.emit(ConnectOneTimeEvent.Disconnected)
                 }
             }
         }

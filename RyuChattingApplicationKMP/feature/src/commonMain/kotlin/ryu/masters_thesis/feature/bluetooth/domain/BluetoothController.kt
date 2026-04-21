@@ -28,4 +28,8 @@ interface BluetoothController {
     fun cleanup()
 
     fun resetConnection()
+
+    val connectionState: StateFlow<ConnectionState>
+    val canReconnect: StateFlow<Boolean>
+    suspend fun reconnect()
 }

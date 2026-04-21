@@ -7,4 +7,6 @@ sealed class ConnectEvent {
     data class QrScanned(val value: String) : ConnectEvent()
     object DialogDismissed : ConnectEvent()
     object DismissClicked : ConnectEvent()
+
+    object ReconnectClicked : ConnectEvent()
 }

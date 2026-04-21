@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothController
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothDevice
+import ryu.masters_thesis.feature.bluetooth.domain.ConnectionState
 import ryu.masters_thesis.presentation.connect.domain.ConnectRepository
 import ryu.masters_thesis.presentation.connect.domain.ScannedDeviceUiModel
 
@@ -62,4 +63,11 @@ class ConnectRepositoryImpl(
 
     override fun getConnectionError(): Flow<String?> = controller.connectionError
     override fun clearConnectionError() = controller.clearConnectionError()
+
+    override fun getConnectionState(): Flow<ConnectionState> = controller.connectionState
+    override fun getCanReconnect(): Flow<Boolean>            = controller.canReconnect
+
+    override suspend fun reconnect() {
+        controller.reconnect()
+    }
 }

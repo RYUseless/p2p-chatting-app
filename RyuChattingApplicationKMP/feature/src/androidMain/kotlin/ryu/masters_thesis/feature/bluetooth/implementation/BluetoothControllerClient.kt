@@ -13,6 +13,7 @@ import kotlinx.coroutines.*
 import ryu.masters_thesis.core.cryptographyUtils.domain.CryptoManager
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothConstants
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothDevice
+import ryu.masters_thesis.feature.bluetooth.domain.ConnectionState
 
 class BluetoothControllerClient(
     context: Context,
@@ -110,8 +111,12 @@ class BluetoothControllerClient(
     override suspend fun connectToDevice(device: BluetoothDevice) {
         Log.d(BluetoothConstants.TAG_CLIENT, "connectToDevice: address=${device.address} roomId=${device.roomId}")
         withContext(Dispatchers.IO) {
-            resetState()
-            withContext(Dispatchers.Main) { _currentRoomId.value = device.roomId }
+            sessionDevice = device
+            resetConnectionState()
+            withContext(Dispatchers.Main) {
+                _currentRoomId.value   = device.roomId
+                _connectionState.value = ConnectionState.CONNECTING
+            }
             connectionManager?.closeConnection()
             connectionManager = buildConnectionManager()
             val androidDevice = adapter?.getRemoteDevice(device.address)
@@ -124,6 +129,7 @@ class BluetoothControllerClient(
         }
     }
 
+
     override fun submitClientPassword(channelId: String, password: String) {
         Log.d(BluetoothConstants.TAG_CLIENT, "submitClientPassword: channelId=$channelId")
         if (password.isBlank()) {
@@ -135,6 +141,7 @@ class BluetoothControllerClient(
             Log.e(BluetoothConstants.TAG_CLIENT, "No pending key data for: $channelId")
             return
         }
+        sessionPassword = password.trim()
         scope.launch(Dispatchers.IO) {
             try {
                 val crypto = cryptoFactory(channelId)
@@ -219,6 +226,29 @@ class BluetoothControllerClient(
             Log.d(BluetoothConstants.TAG_CLIENT, "Receiver registered")
         } catch (e: Exception) {
             Log.e(BluetoothConstants.TAG_CLIENT, "registerReceiver error: ${e.message}")
+        }
+    }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    override suspend fun reconnect() {
+        val device   = sessionDevice   ?: return
+        val password = sessionPassword ?: return
+        Log.d(BluetoothConstants.TAG_CLIENT, "reconnect → ${device.address} roomId=${device.roomId}")
+        withContext(Dispatchers.Main) { _connectionState.value = ConnectionState.RECONNECTING }
+        withContext(Dispatchers.IO) {
+            resetConnectionState()
+            withContext(Dispatchers.Main) { _currentRoomId.value = device.roomId }
+            connectionManager?.closeConnection()
+            connectionManager = buildConnectionManager()
+            val androidDevice = adapter?.getRemoteDevice(device.address)
+            if (androidDevice != null) {
+                connectionManager!!.connectAsClient(androidDevice)
+            } else {
+                withContext(Dispatchers.Main) {
+                    _connectionState.value = ConnectionState.FAILED
+                    _connectionError.value = "Device not found: ${device.address}"
+                }
+            }
         }
     }
 }

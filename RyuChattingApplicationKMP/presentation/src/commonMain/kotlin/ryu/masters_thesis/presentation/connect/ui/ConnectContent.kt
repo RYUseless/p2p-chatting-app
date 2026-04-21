@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import ryu.masters_thesis.core.configuration.getTranslations
+import ryu.masters_thesis.feature.bluetooth.domain.ConnectionState
 import ryu.masters_thesis.presentation.component.ui.FindRoomItem
 import ryu.masters_thesis.presentation.component.ui.LocalAppSettings
 import ryu.masters_thesis.presentation.connect.domain.ConnectEvent
@@ -100,6 +101,30 @@ fun ConnectContent(
                         onClick      = { onEvent(ConnectEvent.DeviceClicked(device)) }
                     )
                 }
+            }
+        }
+        if (state.canReconnect) {
+            Button(
+                onClick  = { onEvent(ConnectEvent.ReconnectClicked) },
+                colors   = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondary,
+                    contentColor   = MaterialTheme.colorScheme.onSecondary,
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(top = 16.dp)
+            ) {
+                if (state.connectionState == ConnectionState.RECONNECTING) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onSecondary,
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                //reconnect
+                Text(textValueTranslation.close)
             }
         }
 

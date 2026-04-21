@@ -20,4 +20,8 @@ object BluetoothConstants {
     const val TAG_CLIENT                 = "BT/Client"
     const val TAG_CONNECTION             = "BT/Connection"
     const val TAG_CLEANUP                = "BT/Cleanup"
+
+    // value
+    const val MSG_ROOM_MEMBERS = "ROOM_MEMBERS"
+    const val RECONNECT_TIMEOUT_MS = 10_000L
 }

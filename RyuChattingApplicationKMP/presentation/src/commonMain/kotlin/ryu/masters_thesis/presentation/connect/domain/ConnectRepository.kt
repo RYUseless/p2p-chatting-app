@@ -1,6 +1,7 @@
 package ryu.masters_thesis.presentation.connect.domain
 
 import kotlinx.coroutines.flow.Flow
+import ryu.masters_thesis.feature.bluetooth.domain.ConnectionState
 import ryu.masters_thesis.presentation.component.domain.ChatRoomUiModel
 
 interface ConnectRepository {
@@ -20,4 +21,7 @@ interface ConnectRepository {
 
     fun getConnectionError(): Flow<String?>
     fun clearConnectionError()
+    fun getConnectionState(): Flow<ConnectionState>
+    fun getCanReconnect(): Flow<Boolean>
+    suspend fun reconnect()
 }

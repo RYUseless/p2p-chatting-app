@@ -8,4 +8,6 @@ sealed class ConnectOneTimeEvent {
     object Dismiss : ConnectOneTimeEvent()
 
     data class NavigateToChat(val roomId: String, val password: String) : ConnectOneTimeEvent()
+
+    object Disconnected : ConnectOneTimeEvent()
 }

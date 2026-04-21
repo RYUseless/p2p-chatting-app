@@ -69,7 +69,7 @@ class BluetoothControllerServer(
     override suspend fun connectToDevice(device: BluetoothDevice)          = Unit
     override fun submitClientPassword(channelId: String, password: String) = Unit
     override fun unregisterReceiver()                                      = Unit
-
+    override suspend fun reconnect() = Unit
     @RequiresPermission(Manifest.permission.BLUETOOTH_ADVERTISE)
     private fun makeDiscoverable() {
         Log.d(BluetoothConstants.TAG_SERVER, "makeDiscoverable: 300s")

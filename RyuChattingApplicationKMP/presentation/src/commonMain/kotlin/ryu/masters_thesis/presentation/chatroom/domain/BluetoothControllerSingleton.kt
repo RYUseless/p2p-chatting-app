@@ -4,6 +4,7 @@ import ryu.masters_thesis.feature.bluetooth.domain.BluetoothController
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothDevice
 import ryu.masters_thesis.feature.messages.domain.Message
 import kotlinx.coroutines.flow.MutableStateFlow
+import ryu.masters_thesis.feature.bluetooth.domain.ConnectionState
 
 object BluetoothControllerSingleton {
     var server: BluetoothController = NoopBluetoothController
@@ -21,6 +22,10 @@ internal object NoopBluetoothController : BluetoothController {
     override val passwordError       = MutableStateFlow<String?>(null)
     override val connectedDeviceName = MutableStateFlow<String?>(null)
     override val channelMessages     = MutableStateFlow(emptyMap<String, List<Message>>())
+
+    override val connectionState = MutableStateFlow<ConnectionState>(ConnectionState.IDLE)
+    override val canReconnect    = MutableStateFlow(false)
+    override suspend fun reconnect() = Unit
 
     override fun startClientMode()                                         = Unit
     override suspend fun connectToDevice(device: BluetoothDevice)          = Unit
