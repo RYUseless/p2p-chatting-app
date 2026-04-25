@@ -23,7 +23,8 @@ interface BluetoothController {
     fun submitServerPassword(channelId: String, password: String)
     fun sendMessage(channelId: String, text: String)
     fun getMessages(channelId: String): List<Message>
-    fun verifyConnection(): Boolean
+    fun verifyConnection(): Boolean = false // pridano false
+
     fun unregisterReceiver()
     fun cleanup()
 
@@ -32,4 +33,6 @@ interface BluetoothController {
     val connectionState: StateFlow<ConnectionState>
     val canReconnect: StateFlow<Boolean>
     suspend fun reconnect()
+
+    val sessionDevice: StateFlow<BluetoothDevice?>
 }

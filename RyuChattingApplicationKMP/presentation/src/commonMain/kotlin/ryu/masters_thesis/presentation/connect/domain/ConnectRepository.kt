@@ -5,7 +5,6 @@ import ryu.masters_thesis.feature.bluetooth.domain.ConnectionState
 import ryu.masters_thesis.presentation.component.domain.ChatRoomUiModel
 
 interface ConnectRepository {
-    // TODO DUMMY: až bude BluetoothController dostupný, nahradit skutečnou implementací
     fun getScannedDevices(): Flow<List<ScannedDeviceUiModel>>
     fun getIsConnected(): Flow<Boolean>
     fun getIsVerified(): Flow<Boolean>
@@ -14,14 +13,14 @@ interface ConnectRepository {
     fun getPassword(): Flow<String?>
     fun getNeedsPassword(): Flow<Boolean>
     fun getPasswordError(): Flow<String?>
+    fun getConnectionError(): Flow<String?>
+    fun getConnectionState(): Flow<ConnectionState>
+    fun getCanReconnect(): Flow<Boolean>
+    fun getSessionDevice(): Flow<ScannedDeviceUiModel?>
     suspend fun startClientMode()
     suspend fun connectToDevice(device: ScannedDeviceUiModel)
     suspend fun submitPassword(password: String)
-    fun unregisterReceiver()
-
-    fun getConnectionError(): Flow<String?>
-    fun clearConnectionError()
-    fun getConnectionState(): Flow<ConnectionState>
-    fun getCanReconnect(): Flow<Boolean>
     suspend fun reconnect()
+    fun unregisterReceiver()
+    fun clearConnectionError()
 }

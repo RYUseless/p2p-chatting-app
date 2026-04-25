@@ -23,6 +23,20 @@ class BluetoothControllerClient(
     private var discoveryJob:      Job? = null
     private var receiverRegistered      = false
 
+    // pokusíkos:
+    @Volatile private var connectGeneration = 0
+
+    override fun sendMessageTo(mac: String, packet: String) = Unit
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    override fun onDisconnectPacket(senderMac: String?) {
+        wasCleanDisconnect     = true
+        _isConnected.value     = false
+        _isVerified.value      = false
+        _connectionState.value = ConnectionState.IDLE
+        connectionManager?.closeConnection()
+    }
+
     private val receiver = object : BroadcastReceiver() {
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
         override fun onReceive(ctx: Context, intent: Intent) {
@@ -107,17 +121,34 @@ class BluetoothControllerClient(
         }
     }
 
-    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    @RequiresPermission(allOf = [Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN])
     override suspend fun connectToDevice(device: BluetoothDevice) {
-        Log.d(BluetoothConstants.TAG_CLIENT, "connectToDevice: address=${device.address} roomId=${device.roomId}")
+        val myGen = ++connectGeneration
+        Log.d(BluetoothConstants.TAG_CLIENT, "connectToDevice: address=${device.address} roomId=${device.roomId} gen=$myGen")
+
+        // kill vseho, co neni potreba pro pripojeni, aka discovery primarne, at to neni nalezitelne a takk
+        discoveryJob?.cancel()
+        adapter?.cancelDiscovery()
+        unregisterReceiver()
+        _isSearching.value = false
+
         withContext(Dispatchers.IO) {
-            sessionDevice = device
+            _sessionDevice.value = device
             resetConnectionState()
+            val oldManager = connectionManager
+            connectionManager = null
+            readThread = null
+            oldManager?.closeConnection()
+
+            if (myGen != connectGeneration) {
+                Log.w(BluetoothConstants.TAG_CLIENT, "connectToDevice gen=$myGen stale, aborting")
+                return@withContext
+            }
+
             withContext(Dispatchers.Main) {
                 _currentRoomId.value   = device.roomId
                 _connectionState.value = ConnectionState.CONNECTING
             }
-            connectionManager?.closeConnection()
             connectionManager = buildConnectionManager()
             val androidDevice = adapter?.getRemoteDevice(device.address)
             if (androidDevice != null) {
@@ -128,7 +159,6 @@ class BluetoothControllerClient(
             }
         }
     }
-
 
     override fun submitClientPassword(channelId: String, password: String) {
         Log.d(BluetoothConstants.TAG_CLIENT, "submitClientPassword: channelId=$channelId")
@@ -141,7 +171,6 @@ class BluetoothControllerClient(
             Log.e(BluetoothConstants.TAG_CLIENT, "No pending key data for: $channelId")
             return
         }
-        sessionPassword = password.trim()
         scope.launch(Dispatchers.IO) {
             try {
                 val crypto = cryptoFactory(channelId)
@@ -231,14 +260,23 @@ class BluetoothControllerClient(
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override suspend fun reconnect() {
-        val device   = sessionDevice   ?: return
-        val password = sessionPassword ?: return
-        Log.d(BluetoothConstants.TAG_CLIENT, "reconnect → ${device.address} roomId=${device.roomId}")
+        val device = _sessionDevice.value ?: return
+        val myGen = ++connectGeneration
+        Log.d(BluetoothConstants.TAG_CLIENT, "reconnect → ${device.address} roomId=${device.roomId} gen=$myGen")
         withContext(Dispatchers.Main) { _connectionState.value = ConnectionState.RECONNECTING }
         withContext(Dispatchers.IO) {
             resetConnectionState()
+            val oldManager = connectionManager
+            connectionManager = null
+            readThread = null
+            oldManager?.closeConnection()
+
+            if (myGen != connectGeneration) {
+                Log.w(BluetoothConstants.TAG_CLIENT, "reconnect gen=$myGen stale, aborting")
+                return@withContext
+            }
+
             withContext(Dispatchers.Main) { _currentRoomId.value = device.roomId }
-            connectionManager?.closeConnection()
             connectionManager = buildConnectionManager()
             val androidDevice = adapter?.getRemoteDevice(device.address)
             if (androidDevice != null) {

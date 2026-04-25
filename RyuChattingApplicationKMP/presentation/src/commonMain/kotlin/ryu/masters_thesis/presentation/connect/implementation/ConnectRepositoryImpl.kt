@@ -15,7 +15,6 @@ class ConnectRepositoryImpl(
 ) : ConnectRepository {
     private val _password = MutableStateFlow<String?>(null)
 
-
     override fun getScannedDevices(): Flow<List<ScannedDeviceUiModel>> =
         controller.scannedDevices.map { devices ->
             devices.map { d ->
@@ -27,19 +26,18 @@ class ConnectRepositoryImpl(
             }
         }
 
-    override fun getIsConnected(): Flow<Boolean>  = controller.isConnected
-    override fun getIsVerified(): Flow<Boolean>   = controller.isVerified
-    override fun getIsSearching(): Flow<Boolean>  = controller.isSearching
-    override fun getCurrentRoomId(): Flow<String?> = controller.currentRoomId
-    override fun getNeedsPassword(): Flow<Boolean> = controller.needsPassword
-    override fun getPasswordError(): Flow<String?> = controller.passwordError
+    override fun getSessionDevice(): Flow<ScannedDeviceUiModel?> =
+        controller.sessionDevice.map { device ->
+            device?.let {
+                ScannedDeviceUiModel(
+                    address = it.address,
+                    name    = it.name,
+                    roomId  = it.roomId,
+                )
+            }
+        }
 
-    override fun getPassword(): Flow<String?> = _password.asStateFlow()
-
-
-    override suspend fun startClientMode() {
-        controller.startClientMode()
-    }
+    override suspend fun startClientMode() = controller.startClientMode()
 
     override suspend fun connectToDevice(device: ScannedDeviceUiModel) {
         controller.connectToDevice(
@@ -53,21 +51,23 @@ class ConnectRepositoryImpl(
 
     override suspend fun submitPassword(password: String) {
         val channelId = controller.currentRoomId.value ?: return
-        _password.value = password  // ← uložit před odesláním
+        _password.value = password
         controller.submitClientPassword(channelId, password)
     }
 
-    override fun unregisterReceiver() {
-        controller.unregisterReceiver()
-    }
+    override suspend fun reconnect() = controller.reconnect()
 
-    override fun getConnectionError(): Flow<String?> = controller.connectionError
+    override fun unregisterReceiver()  = controller.unregisterReceiver()
     override fun clearConnectionError() = controller.clearConnectionError()
 
+    override fun getIsConnected(): Flow<Boolean>   = controller.isConnected
+    override fun getIsVerified(): Flow<Boolean>    = controller.isVerified
+    override fun getIsSearching(): Flow<Boolean>   = controller.isSearching
+    override fun getCurrentRoomId(): Flow<String?> = controller.currentRoomId
+    override fun getNeedsPassword(): Flow<Boolean> = controller.needsPassword
+    override fun getPasswordError(): Flow<String?> = controller.passwordError
+    override fun getConnectionError(): Flow<String?> = controller.connectionError
     override fun getConnectionState(): Flow<ConnectionState> = controller.connectionState
-    override fun getCanReconnect(): Flow<Boolean>            = controller.canReconnect
-
-    override suspend fun reconnect() {
-        controller.reconnect()
-    }
+    override fun getCanReconnect(): Flow<Boolean>  = controller.canReconnect
+    override fun getPassword(): Flow<String?>      = _password.asStateFlow()
 }

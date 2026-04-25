@@ -34,6 +34,10 @@ abstract class BluetoothControllerBase(
     protected val _passwordError       = MutableStateFlow<String?>(null)
     protected val _connectedDeviceName = MutableStateFlow<String?>(null)
     protected val _channelMessages     = MutableStateFlow<Map<String, List<Message>>>(emptyMap())
+    protected val _connectionError     = MutableStateFlow<String?>(null)
+    protected val _connectionState     = MutableStateFlow(ConnectionState.IDLE)
+    protected val _canReconnect        = MutableStateFlow(false)
+    protected val _sessionDevice       = MutableStateFlow<BluetoothDevice?>(null)
 
     override val scannedDevices:      StateFlow<List<BluetoothDevice>>     = _scannedDevices.asStateFlow()
     override val isConnected:         StateFlow<Boolean>                    = _isConnected.asStateFlow()
@@ -45,28 +49,21 @@ abstract class BluetoothControllerBase(
     override val passwordError:       StateFlow<String?>                    = _passwordError.asStateFlow()
     override val connectedDeviceName: StateFlow<String?>                    = _connectedDeviceName.asStateFlow()
     override val channelMessages:     StateFlow<Map<String, List<Message>>> = _channelMessages.asStateFlow()
+    override val connectionError:     StateFlow<String?>                    = _connectionError.asStateFlow()
+    override val connectionState:     StateFlow<ConnectionState>            = _connectionState.asStateFlow()
+    override val canReconnect:        StateFlow<Boolean>                    = _canReconnect.asStateFlow()
+    override val sessionDevice:       StateFlow<BluetoothDevice?>           = _sessionDevice.asStateFlow()
+
+    protected abstract fun sendMessageTo(mac: String, packet: String)
 
     protected val scope             = CoroutineScope(Dispatchers.Main + SupervisorJob())
     protected var readThread:        Thread? = null
     protected var connectionManager: BluetoothConnectionManager? = null
     protected val cryptoManagers     = mutableMapOf<String, CryptoManager>()
     protected val pendingKeyData     = mutableMapOf<String, String>()
+    protected var wasCleanDisconnect = false
 
-    protected val _connectionError = MutableStateFlow<String?>(null)
-    override val connectionError: StateFlow<String?> = _connectionError.asStateFlow()
-
-    override fun clearConnectionError() {
-        _connectionError.value = null
-    }
-
-    protected val _connectionState = MutableStateFlow(ConnectionState.IDLE)
-    protected val _canReconnect    = MutableStateFlow(false)
-    override val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
-    override val canReconnect:    StateFlow<Boolean>         = _canReconnect.asStateFlow()
-
-    protected var sessionDevice:   BluetoothDevice? = null
-    protected var sessionPassword: String?           = null
-    private var wasCleanDisconnect = false
+    override fun clearConnectionError() { _connectionError.value = null }
 
     protected fun extractRoomId(name: String): String? {
         val prefix = "${BluetoothConstants.APP_IDENTIFIER}_"
@@ -112,9 +109,10 @@ abstract class BluetoothControllerBase(
             }
         }
     }
+
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-    protected fun handleIncoming(raw: String) {
-        Log.v(BluetoothConstants.TAG_BASE, "handleIncoming raw=${raw.take(80)}")
+    protected fun handleIncoming(raw: String, senderMac: String? = null) {
+        Log.v(BluetoothConstants.TAG_BASE, "handleIncoming raw=${raw.take(80)} sender=$senderMac")
         val (type, channelId, payload) = parsePacket(raw) ?: run {
             Log.w(BluetoothConstants.TAG_BASE, "unparseable packet=${raw.take(60)}")
             return
@@ -126,29 +124,22 @@ abstract class BluetoothControllerBase(
                 pendingKeyData[channelId] = payload
                 scope.launch(Dispatchers.Main) {
                     _currentRoomId.value = channelId
-                    val savedPass = sessionPassword
-                    if (_connectionState.value == ConnectionState.RECONNECTING && savedPass != null) {
-                        Log.d(BluetoothConstants.TAG_BASE, "KEY_EXCHANGE during RECONNECT → auto-submit")
-                        submitClientPassword(channelId, savedPass)
-                    } else {
-                        _needsPassword.value = true
-                    }
+                    _needsPassword.value = true
                 }
             }
             BluetoothConstants.MSG_HANDSHAKE -> {
                 Log.d(BluetoothConstants.TAG_BASE, "HANDSHAKE payload=$payload isServer=${_isServer.value}")
                 scope.launch(Dispatchers.Main) {
-                    when {
-                        payload == BluetoothConstants.HANDSHAKE_CLIENT_READY && _isServer.value -> {
-                            Log.d(BluetoothConstants.TAG_BASE, "HANDSHAKE: sending CONFIRMED")
-                            connectionManager?.sendMessage(
-                                buildPacket(BluetoothConstants.MSG_HANDSHAKE, channelId, BluetoothConstants.HANDSHAKE_CONFIRMED)
-                            )
+                    when (payload) {
+                        BluetoothConstants.HANDSHAKE_CLIENT_READY if _isServer.value -> {
+                            Log.d(BluetoothConstants.TAG_BASE, "HANDSHAKE: sending CONFIRMED to $senderMac")
+                            val packet = buildPacket(BluetoothConstants.MSG_HANDSHAKE, channelId, BluetoothConstants.HANDSHAKE_CONFIRMED)
+                            if (senderMac != null) sendMessageTo(senderMac, packet) else sendMessage(channelId, packet)
                             _isConnected.value     = true
                             _isVerified.value      = true
                             _connectionState.value = ConnectionState.CONNECTED
                         }
-                        payload == BluetoothConstants.HANDSHAKE_CONFIRMED && !_isServer.value -> {
+                        BluetoothConstants.HANDSHAKE_CONFIRMED if !_isServer.value -> {
                             Log.d(BluetoothConstants.TAG_BASE, "HANDSHAKE: confirmed, chat open")
                             _isConnected.value     = true
                             _isVerified.value      = true
@@ -168,17 +159,11 @@ abstract class BluetoothControllerBase(
                     payload
                 }
                 Log.d(BluetoothConstants.TAG_BASE, "MSG_DATA: channelId=$channelId len=${decrypted.length}")
-                scope.launch(Dispatchers.Main) { addMessage(channelId, "Remote", decrypted) }
+                scope.launch(Dispatchers.Main) { addMessage(channelId, senderMac ?: "Remote", decrypted) }
             }
             BluetoothConstants.MSG_DISCONNECT -> {
-                Log.i(BluetoothConstants.TAG_BASE, "DISCONNECT: channelId=$channelId reason=$payload")
-                wasCleanDisconnect = true
-                scope.launch(Dispatchers.Main) {
-                    _isConnected.value     = false
-                    _isVerified.value      = false
-                    _connectionState.value = ConnectionState.IDLE
-                    connectionManager?.closeConnection()
-                }
+                Log.i(BluetoothConstants.TAG_BASE, "DISCONNECT: channelId=$channelId reason=$payload sender=$senderMac")
+                scope.launch(Dispatchers.Main) { onDisconnectPacket(senderMac) }
             }
             else -> Log.w(BluetoothConstants.TAG_BASE, "unknown type=$type")
         }
@@ -188,11 +173,12 @@ abstract class BluetoothControllerBase(
     protected fun startReadThread() {
         readThread?.interrupt()
         Log.d(BluetoothConstants.TAG_BASE, "startReadThread")
+        val capturedManager = connectionManager
         readThread = Thread {
             Log.d(BluetoothConstants.TAG_BASE, "Read thread running")
-            while (connectionManager?.socket?.isConnected == true) {
+            while (capturedManager?.socket?.isConnected == true) {
                 try {
-                    val raw = connectionManager?.readMessage() ?: run {
+                    val raw = capturedManager.readMessage() ?: run {
                         Log.w(BluetoothConstants.TAG_BASE, "readMessage null, ending thread")
                         break
                     }
@@ -204,13 +190,17 @@ abstract class BluetoothControllerBase(
             }
             Log.d(BluetoothConstants.TAG_BASE, "Read thread ended, clean=$wasCleanDisconnect")
             scope.launch(Dispatchers.Main) {
-                _isConnected.value = false
-                _isVerified.value  = false
-                if (wasCleanDisconnect) {
-                    resetState()
+                if (connectionManager === capturedManager) {
+                    _isConnected.value = false
+                    _isVerified.value  = false
+                    if (wasCleanDisconnect) {
+                        resetState()
+                    } else {
+                        _connectionState.value = ConnectionState.DISCONNECTED
+                        _canReconnect.value    = _sessionDevice.value != null
+                    }
                 } else {
-                    _connectionState.value = ConnectionState.DISCONNECTED
-                    _canReconnect.value    = sessionDevice != null && sessionPassword != null
+                    Log.d(BluetoothConstants.TAG_BASE, "Read thread cleanup skipped — stale manager")
                 }
             }
         }.also { it.start() }
@@ -236,7 +226,7 @@ abstract class BluetoothControllerBase(
                 _isConnected.value     = false
                 _isVerified.value      = false
                 _connectionState.value = ConnectionState.FAILED
-                _canReconnect.value    = sessionDevice != null && sessionPassword != null
+                _canReconnect.value    = _sessionDevice.value != null
             }
         },
         onDisconnected = {
@@ -266,20 +256,31 @@ abstract class BluetoothControllerBase(
         Log.d(BluetoothConstants.TAG_BASE, "resetState (full)")
         resetConnectionState()
         _currentRoomId.value   = null
-        sessionDevice          = null
-        sessionPassword        = null
+        _sessionDevice.value   = null
         _canReconnect.value    = false
         _connectionState.value = ConnectionState.IDLE
     }
 
+    //redo once again ffs
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun resetConnection() {
         Log.d(BluetoothConstants.TAG_BASE, "resetConnection")
-        scope.launch(Dispatchers.Main) {
-            resetState()
-            connectionManager?.closeConnection()
-            connectionManager = null
+        wasCleanDisconnect = true      // ← read thread cleanup půjde přes resetState(), ne DISCONNECTED
+        val manager = connectionManager
+        connectionManager = null
+        readThread = null
+        scope.launch(Dispatchers.IO) {
+            manager?.closeConnection() // ← async, neblokuje
         }
+        scope.launch(Dispatchers.Main) {
+            resetConnectionState()
+        }
+    }
+    protected open fun onDisconnectPacket(senderMac: String?) {
+        // Base default — pro klienta
+        _isConnected.value     = false
+        _isVerified.value      = false
+        _connectionState.value = ConnectionState.IDLE
     }
 
     override fun verifyConnection(): Boolean =

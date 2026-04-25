@@ -39,4 +39,5 @@ internal object NoopBluetoothController : BluetoothController {
     override fun cleanup()                                                 = Unit
     override val connectionError = MutableStateFlow<String?>(null)
     override fun clearConnectionError() = Unit
+    override val sessionDevice = MutableStateFlow<BluetoothDevice?>(null)
 }

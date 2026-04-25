@@ -5,8 +5,6 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothServerSocket
 import android.bluetooth.BluetoothSocket
 import android.content.Context
-import android.content.Intent
-import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresPermission
 import androidx.core.content.edit
@@ -31,6 +29,7 @@ class BluetoothConnectionManager(
     private var bufferedReader: BufferedReader?       = null
     private var originalDeviceName: String?          = null
 
+    /*
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun startServer(advertisedName: String) {
         Log.d(BluetoothConstants.TAG_CONNECTION, "startServer: advertisedName=$advertisedName")
@@ -97,6 +96,8 @@ class BluetoothConnectionManager(
             }
         }.start()
     }
+     */
+
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     suspend fun connectAsClient(device: android.bluetooth.BluetoothDevice) {
         Log.d(BluetoothConstants.TAG_CONNECTION, "connectAsClient: ${device.address}")
@@ -183,15 +184,16 @@ class BluetoothConnectionManager(
     fun closeConnection() {
         Log.d(BluetoothConstants.TAG_CONNECTION, "closeConnection: socket=${socket != null} serverSocket=${serverSocket != null}")
         try {
+            // zmena poradi kvuli chybam pri odpojeni, kdyz byl bufferreader pred, bylo to bloknute
+            socket?.close()
             bufferedReader?.close()
             serverSocket?.close()
-            socket?.close()
         } catch (e: IOException) {
             Log.e(BluetoothConstants.TAG_CONNECTION, "closeConnection error: ${e.message}")
         } finally {
-            bufferedReader = null
-            serverSocket   = null
-            socket         = null
+            bufferedReader  = null
+            serverSocket    = null
+            socket          = null
             restoreBluetoothName()
             onDisconnected()
         }

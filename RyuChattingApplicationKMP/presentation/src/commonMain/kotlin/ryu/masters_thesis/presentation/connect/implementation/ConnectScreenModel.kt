@@ -46,6 +46,7 @@ class ConnectScreenModel(
     }
 
     private fun observeBluetoothState() {
+        // Hlavní state combine
         screenModelScope.launch {
             combine(
                 repository.getScannedDevices(),
@@ -54,23 +55,26 @@ class ConnectScreenModel(
                 repository.getIsSearching(),
                 repository.getConnectionState(),
                 repository.getCanReconnect(),
+                repository.getSessionDevice(),
             ) { values ->
                 ConnectState(
                     //TODO: vyresit unchecked resolve
-                    scannedDevices  = values[0] as List<ScannedDeviceUiModel>,
-                    isConnected     = values[1] as Boolean,
-                    isVerified      = values[2] as Boolean,
-                    isSearching     = values[3] as Boolean,
-                    connectionState = values[4] as ConnectionState,
-                    canReconnect    = values[5] as Boolean,
-                    needsPassword   = _state.value.needsPassword,
-                    passwordError   = _state.value.passwordError,
-                    selectedDevice  = _state.value.selectedDevice,
+                    scannedDevices   = values[0] as List<ScannedDeviceUiModel>,
+                    isConnected      = values[1] as Boolean,
+                    isVerified       = values[2] as Boolean,
+                    isSearching      = values[3] as Boolean,
+                    connectionState  = values[4] as ConnectionState,
+                    canReconnect     = values[5] as Boolean,
+                    sessionDevice    = values[6] as ScannedDeviceUiModel?,
+                    needsPassword    = _state.value.needsPassword,
+                    passwordError    = _state.value.passwordError,
+                    selectedDevice   = _state.value.selectedDevice,
                     remainingSeconds = _state.value.remainingSeconds,
                 )
             }.collect { _state.value = it }
         }
 
+        // Navigation trigger po úspěšném HANDSHAKE
         screenModelScope.launch {
             combine(
                 repository.getIsVerified(),
@@ -83,10 +87,25 @@ class ConnectScreenModel(
             }.collect()
         }
 
+        // needsPassword → otevřít dialog
+        // při reconnectu použijeme sessionDevice jako selectedDevice
         screenModelScope.launch {
-            repository.getNeedsPassword().collect { needs ->
-                _state.update { it.copy(needsPassword = needs) }
-            }
+            combine(
+                repository.getNeedsPassword(),
+                repository.getSessionDevice(),
+            ) { needsPassword, sessionDevice ->
+                if (needsPassword) {
+                    val target = _state.value.selectedDevice ?: sessionDevice
+                    if (target != null) {
+                        _state.update { it.copy(
+                            needsPassword  = true,
+                            selectedDevice = target,
+                        ) }
+                    }
+                } else {
+                    _state.update { it.copy(needsPassword = false) }
+                }
+            }.collect()
         }
 
         screenModelScope.launch {
@@ -123,7 +142,7 @@ class ConnectScreenModel(
         }
     }
 
-    private fun selectDevice(device: ryu.masters_thesis.presentation.connect.domain.ScannedDeviceUiModel) {
+    private fun selectDevice(device: ScannedDeviceUiModel) {
         _state.update { it.copy(selectedDevice = device) }
         screenModelScope.launch {
             repository.connectToDevice(device)
@@ -143,6 +162,7 @@ class ConnectScreenModel(
     }
 
     fun restartScanning() {
+        _state.update { it.copy(selectedDevice = null, needsPassword = false) }
         screenModelScope.launch {
             repository.startClientMode()
         }
