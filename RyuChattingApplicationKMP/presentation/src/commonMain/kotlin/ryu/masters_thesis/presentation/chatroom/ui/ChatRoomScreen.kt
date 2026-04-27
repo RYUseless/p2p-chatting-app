@@ -1,56 +1,43 @@
 package ryu.masters_thesis.presentation.chatroom.ui
 
 import androidx.compose.runtime.*
-import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
+import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
-import ryu.masters_thesis.presentation.chatroom.domain.BluetoothControllerSingleton
+import org.koin.core.parameter.parametersOf
+import org.koin.core.qualifier.named
+import org.koin.mp.KoinPlatform.getKoin
+import ryu.masters_thesis.feature.bluetooth.domain.BluetoothController
 import ryu.masters_thesis.presentation.chatroom.domain.ChatRoomOneTimeEvent
-import ryu.masters_thesis.presentation.chatroom.implementation.ChatRoomRepositoryImpl
 import ryu.masters_thesis.presentation.chatroom.implementation.ChatRoomScreenModel
 
 data class ChatRoomScreen(
     val roomName: String,
     val password: String,
-    ) : Screen {
+) : Screen {
 
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
+        val scope     = rememberCoroutineScope()
 
-        val scope = rememberCoroutineScope()
+        val server = getKoin().get<BluetoothController>(named("server"))
+        val client = getKoin().get<BluetoothController>(named("client"))
 
-        // TODO DI: BluetoothController předat přes DI místo singletonu
-        val screenModel = rememberScreenModel(tag = roomName) {
-            val controller = if (BluetoothControllerSingleton.server.isServer.value)
-                BluetoothControllerSingleton.server
-            else
-                BluetoothControllerSingleton.client
-
-            ChatRoomScreenModel(
-                roomName   = roomName,
-                password   = password,
-                repository = ChatRoomRepositoryImpl(
-                    controller = controller,
-                    channelId  = roomName,
-                ),
-            )
-        }
+        val screenModel = koinScreenModel<ChatRoomScreenModel>(
+            parameters = { parametersOf(roomName, password, server.isServer.value) }
+        )
         val state by screenModel.state.collectAsState()
 
-        // Reset spojení při opuštění ChatRoom
         DisposableEffect(Unit) {
             onDispose {
                 scope.launch(Dispatchers.IO) {
-                    if (BluetoothControllerSingleton.server.isServer.value) {
-                        BluetoothControllerSingleton.server.cleanup()
-                    } else {
-                        BluetoothControllerSingleton.client.resetConnection()
-                    }
+                    if (server.isServer.value) server.cleanup()
+                    else client.resetConnection()
                 }
             }
         }
@@ -58,11 +45,8 @@ data class ChatRoomScreen(
         LaunchedEffect(Unit) {
             screenModel.oneTimeEvents.collect { event ->
                 when (event) {
-                    // go back to homescreen, not connectscreen or createscreen
                     is ChatRoomOneTimeEvent.NavigateBack   -> navigator.popUntilRoot()
-                    is ChatRoomOneTimeEvent.OpenFilePicker -> {
-                        // TODO DUMMY: file picker až bude :core dostupný
-                    }
+                    is ChatRoomOneTimeEvent.OpenFilePicker -> { }
                     is ChatRoomOneTimeEvent.ShowError      -> Unit
                 }
             }

@@ -15,7 +15,6 @@ import ryu.masters_thesis.core.cryptographyUtils.domain.CryptoManager
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothConstants
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothDevice
 import ryu.masters_thesis.feature.bluetooth.domain.ConnectionState
-import androidx.core.content.edit
 
 class BluetoothControllerServer(
     context: Context,
@@ -176,7 +175,9 @@ class BluetoothControllerServer(
         }
         if (original != null) {
             context.getSharedPreferences("bluetooth_state", Context.MODE_PRIVATE)
-                .edit { putString("original_bt_name", original) }
+                .edit()
+                .putString("original_bt_name", original)
+                .apply()
             BluetoothCleanupService.originalDeviceName = original
             BluetoothCleanupService.bluetoothAdapter   = adapter
         }

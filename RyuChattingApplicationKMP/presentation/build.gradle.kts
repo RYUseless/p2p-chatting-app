@@ -80,6 +80,10 @@ kotlin {
                 //call pro ostatni moduly:
                 implementation(project(":core"))
                 implementation(project(":feature"))
+                //di
+                implementation(libs.koin.core)
+                implementation(libs.koin.compose)
+                implementation("cafe.adriel.voyager:voyager-koin:1.1.0-beta03")
             }
         }
 

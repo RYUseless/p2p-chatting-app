@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.util.Log
 import android.util.Size
-import androidx.annotation.OptIn
 import androidx.camera.core.*
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
@@ -29,6 +28,7 @@ class QrCodeReaderImpl(
     private var cameraProvider: ProcessCameraProvider? = null
     private val executor = Executors.newSingleThreadExecutor()
 
+    @ExperimentalGetImage
     @OptIn(ExperimentalGetImage::class)
     override fun start(onResult: (String) -> Unit) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)

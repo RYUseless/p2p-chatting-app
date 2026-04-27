@@ -1,7 +1,7 @@
 package ryu.masters_thesis.ryu_chatting_application_kmp
 
 import android.Manifest
-import android.bluetooth.BluetoothManager
+//import android.bluetooth.BluetoothManager
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -11,14 +11,14 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 //ryuoviny:
 //core
-import ryu.masters_thesis.core.cryptographyUtils.implementation.AESCryptoManagerImpl
-import ryu.masters_thesis.core.cryptographyUtils.implementation.AesKeyManagerImpl
+//import ryu.masters_thesis.core.cryptographyUtils.implementation.AESCryptoManagerImpl
+//import ryu.masters_thesis.core.cryptographyUtils.implementation.AesKeyManagerImpl
 //presentation
-import ryu.masters_thesis.presentation.chatroom.domain.BluetoothControllerSingleton
+//import ryu.masters_thesis.presentation.chatroom.domain.BluetoothControllerSingleton
 import ryu.masters_thesis.presentation.navigation.ui.AppNavigation
 //feature:
-import ryu.masters_thesis.feature.bluetooth.implementation.BluetoothControllerServer
-import ryu.masters_thesis.feature.bluetooth.implementation.BluetoothControllerClient
+//import ryu.masters_thesis.feature.bluetooth.implementation.BluetoothControllerServer
+//import ryu.masters_thesis.feature.bluetooth.implementation.BluetoothControllerClient
 class MainActivity : ComponentActivity() {
 
     private var permissionsGranted = false
@@ -41,29 +41,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+
+    //zmena pri implementaci DI
     private fun initApp() {
-        val bluetoothAdapter =
-            (getSystemService(BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
-
-        if (bluetoothAdapter == null || !permissionsGranted) {
-            setContent { AppNavigation() }
-            return
-        }
-
-        val keyManager = AesKeyManagerImpl(this)
-        val cryptoFactory: (String) -> AESCryptoManagerImpl = { channelId ->
-            AESCryptoManagerImpl(roomId = channelId, keyManager = keyManager)
-        }
-
-        BluetoothControllerSingleton.server = BluetoothControllerServer(
-            context       = this,
-            cryptoFactory = cryptoFactory,
-        )
-        BluetoothControllerSingleton.client = BluetoothControllerClient(
-            context       = this,
-            cryptoFactory = cryptoFactory,
-        )
-
         setContent { AppNavigation() }
     }
 

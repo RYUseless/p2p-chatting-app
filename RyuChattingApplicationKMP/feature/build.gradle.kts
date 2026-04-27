@@ -42,6 +42,9 @@ kotlin {
 
                 // Coroutines + Flow
                 implementation(libs.kotlinx.coroutines.core)
+
+                //di
+                implementation(libs.koin.core)
             }
         }
 
