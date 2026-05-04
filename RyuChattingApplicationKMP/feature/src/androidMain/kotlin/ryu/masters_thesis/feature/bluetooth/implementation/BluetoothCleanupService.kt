@@ -9,8 +9,9 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
-import androidx.core.app.NotificationCompat
-import androidx.core.content.edit
+import androidx.annotation.RequiresApi
+//import androidx.core.app.NotificationCompat
+//import androidx.core.content.edit
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothConstants
 
 class BluetoothCleanupService : Service() {
@@ -26,16 +27,16 @@ class BluetoothCleanupService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel("bt_channel", "Bluetooth", NotificationManager.IMPORTANCE_MIN)
             getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
+            startForeground(1, buildNotification())
         }
-        startForeground(
-            1,
-            NotificationCompat.Builder(this, "bt_channel")
-                .setContentTitle("RyuP2P")
-                .setContentText("Active")
-                .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
-                .build()
-        )
     }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun buildNotification() = android.app.Notification.Builder(this, "bt_channel")
+        .setContentTitle("RyuP2P")
+        .setContentText("Active")
+        .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
+        .build()
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
@@ -51,7 +52,7 @@ class BluetoothCleanupService : Service() {
             } catch (e: SecurityException) {
                 Log.w(BluetoothConstants.TAG_CLEANUP, "Cannot restore BT name: ${e.message}")
             }
-            prefs.edit { remove("original_bt_name") }
+            prefs.edit().remove("original_bt_name").apply()
         } else {
             Log.w(BluetoothConstants.TAG_CLEANUP, "Nothing to restore: adapter=${adapter != null} savedName=$saved")
         }

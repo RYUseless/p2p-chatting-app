@@ -1,15 +1,16 @@
 package ryu.masters_thesis.presentation.chatroom.domain
 
-import ryu.masters_thesis.feature.bluetooth.domain.BluetoothController
-import ryu.masters_thesis.feature.bluetooth.domain.BluetoothDevice
-import ryu.masters_thesis.feature.messages.domain.Message
-import kotlinx.coroutines.flow.MutableStateFlow
-import ryu.masters_thesis.feature.bluetooth.domain.ConnectionState
+//import ryu.masters_thesis.feature.bluetooth.domain.BluetoothController
+//import ryu.masters_thesis.feature.bluetooth.domain.BluetoothDevice
+//import ryu.masters_thesis.feature.messages.domain.Message
+//import kotlinx.coroutines.flow.MutableStateFlow
+//import ryu.masters_thesis.feature.bluetooth.domain.ConnectionState
 
 //DEPRECATED
 //SOON TO BE KILLED
 // I HOPE THEHEEEEE
 
+/*
 object BluetoothControllerSingleton {
     var server: BluetoothController = NoopBluetoothController
     var client: BluetoothController = NoopBluetoothController
@@ -45,3 +46,6 @@ internal object NoopBluetoothController : BluetoothController {
     override fun clearConnectionError() = Unit
     override val sessionDevice = MutableStateFlow<BluetoothDevice?>(null)
 }
+
+
+ */

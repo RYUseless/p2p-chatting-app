@@ -13,6 +13,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import ryu.masters_thesis.core.configuration.getTranslations
 import ryu.masters_thesis.feature.bluetooth.domain.ConnectionState
+import ryu.masters_thesis.feature.bluetoothNeighbourProtokol.data.NeighbouringDevice
 import ryu.masters_thesis.presentation.component.ui.FindRoomItem
 import ryu.masters_thesis.presentation.component.ui.LocalAppSettings
 import ryu.masters_thesis.presentation.connect.domain.ConnectEvent
@@ -103,6 +104,39 @@ fun ConnectContent(
                 }
             }
         }
+        //new if:Else shittemitte
+        if (state.meshNodes.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text     = "Mesh Peers (${state.meshNodes.size})",
+                style    = MaterialTheme.typography.titleMedium,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                color    = textColor,
+            )
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .background(backgroundColor)
+            ) {
+                items(state.meshNodes) { node ->
+                    MeshPeerItem(
+                        node     = node,
+                        hopCount = state.meshRoutes.getBestPath(node.neighbourBluetoothAddress)?.totalHopCount,
+                        textColor    = textColor,
+                        surfaceColor = surfaceColor,
+                        onClick  = {
+                            onEvent(ConnectEvent.MeshPeerClicked(
+                                address = node.neighbourBluetoothAddress,
+                                name    = node.neighbourNodeName,
+                            ))
+                        }
+                    )
+                }
+            }
+        }
         if (state.canReconnect) {
             Button(
                 onClick  = { onEvent(ConnectEvent.ReconnectClicked) },
@@ -147,4 +181,26 @@ fun ConnectContent(
             onEvent = onEvent,
         )
     }
+}
+
+//new func
+@Composable
+private fun MeshPeerItem(
+    node         : NeighbouringDevice,
+    hopCount     : Int?,
+    textColor    : androidx.compose.ui.graphics.Color,
+    surfaceColor : androidx.compose.ui.graphics.Color,
+    onClick      : () -> Unit,
+) {
+    val badge = if (hopCount == 1) "DIRECT" else "RELAY ${hopCount ?: "?"}hops"
+    val badgeColor = if (hopCount == 1) MaterialTheme.colorScheme.primary
+    else MaterialTheme.colorScheme.secondary
+
+    FindRoomItem(
+        name         = "${node.neighbourNodeName ?: node.neighbourBluetoothAddress} [$badge]",
+        mac          = node.neighbourBluetoothAddress,
+        textColor    = if (node.isNeighbourAlive) textColor else textColor.copy(alpha = 0.4f),
+        surfaceColor = surfaceColor,
+        onClick      = onClick,
+    )
 }

@@ -2,6 +2,8 @@ package ryu.masters_thesis.feature.bluetooth.domain
 
 import kotlinx.coroutines.flow.StateFlow
 import ryu.masters_thesis.feature.messages.domain.Message
+//new importes
+import kotlinx.coroutines.flow.SharedFlow
 
 interface BluetoothController {
     val scannedDevices:      StateFlow<List<BluetoothDevice>>
@@ -35,4 +37,9 @@ interface BluetoothController {
     suspend fun reconnect()
 
     val sessionDevice: StateFlow<BluetoothDevice?>
+
+    //new shit
+    val incomingRawMessages: SharedFlow<Triple<String, String, String>>
+    // Triple: senderMac, channelId, rawPayload
+
 }

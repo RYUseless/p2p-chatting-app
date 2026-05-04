@@ -4,6 +4,7 @@ object BluetoothConstants {
     const val APP_IDENTIFIER             = "Ryuovo_Appec"
     const val UUID_STRING                = "f6c44fea-9edb-5e04-a1b1-e733b049a26e"
     const val DISCOVERY_TIMEOUT_MS       = 30_000L
+    //todo: použít :)
     const val SERVER_TIMEOUT_MS          = 300_000L
 
     const val MSG_KEY_EXCHANGE           = "KEY_EXCHANGE"

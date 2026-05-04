@@ -84,6 +84,9 @@ kotlin {
                 implementation(libs.koin.core)
                 implementation(libs.koin.compose)
                 implementation("cafe.adriel.voyager:voyager-koin:1.1.0-beta03")
+                //logísci
+                implementation("co.touchlab:kermit:2.0.5")
+
             }
         }
 

@@ -5,6 +5,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import co.touchlab.kermit.Logger
 import ryu.masters_thesis.presentation.chatroom.ui.ChatRoomScreen
 import ryu.masters_thesis.presentation.component.ui.SwipeableDismissWrapper
 import ryu.masters_thesis.presentation.connect.domain.ConnectOneTimeEvent
@@ -26,6 +27,10 @@ object ConnectScreen : Screen {
                     is ConnectOneTimeEvent.Dismiss        -> navigator.pop()
                     is ConnectOneTimeEvent.ShowError      -> navigator.pop()
                     is ConnectOneTimeEvent.Disconnected   -> { }
+                    is ConnectOneTimeEvent.ShowRelayInfo -> {
+                        Logger.d("BNP") { "Relay to ${event.name}@${event.destinationAddress} via ${event.hopCount} hops" }
+                        navigator.pop()
+                    }
                 }
             }
         }

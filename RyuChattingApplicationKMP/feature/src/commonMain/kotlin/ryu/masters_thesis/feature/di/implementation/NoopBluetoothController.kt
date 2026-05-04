@@ -5,6 +5,9 @@ import ryu.masters_thesis.feature.bluetooth.domain.BluetoothController
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothDevice
 import ryu.masters_thesis.feature.bluetooth.domain.ConnectionState
 import ryu.masters_thesis.feature.messages.domain.Message
+//hofixing issues?
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 
 // rn pojmenovane takto, protože noop existuje v presentation stále :)
 internal class BluetoothControllerNoop : BluetoothController {
@@ -35,4 +38,7 @@ internal class BluetoothControllerNoop : BluetoothController {
     override fun unregisterReceiver()                                      = Unit
     override fun cleanup()                                                 = Unit
     override fun clearConnectionError()                                    = Unit
+
+    //new one:
+    override val incomingRawMessages: SharedFlow<Triple<String, String, String>> = MutableSharedFlow()
 }

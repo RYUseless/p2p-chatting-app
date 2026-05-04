@@ -2,6 +2,9 @@ package ryu.masters_thesis.presentation.connect.implementation
 
 import ryu.masters_thesis.feature.bluetooth.domain.ConnectionState
 import ryu.masters_thesis.presentation.connect.domain.ScannedDeviceUiModel
+// new importíci:
+import ryu.masters_thesis.feature.bluetoothNeighbourProtokol.data.NeighbouringDevice
+import ryu.masters_thesis.feature.bluetoothNeighbourProtokol.data.RoutingTable
 
 // src pro connect content
 data class ConnectState(
@@ -16,4 +19,7 @@ data class ConnectState(
     val remainingSeconds: Int                        = 30,
     val connectionState:  ConnectionState            = ConnectionState.IDLE,
     val canReconnect:     Boolean                    = false,
+    //nova pole
+    val meshNodes  : List<NeighbouringDevice> = emptyList(),
+    val meshRoutes : RoutingTable             = RoutingTable(),
 )

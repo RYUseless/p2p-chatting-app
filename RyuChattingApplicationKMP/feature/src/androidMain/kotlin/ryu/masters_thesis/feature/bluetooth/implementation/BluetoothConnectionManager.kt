@@ -7,7 +7,7 @@ import android.bluetooth.BluetoothSocket
 import android.content.Context
 import android.util.Log
 import androidx.annotation.RequiresPermission
-import androidx.core.content.edit
+//import androidx.core.content.edit //issue, issme?
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothConstants
@@ -211,7 +211,7 @@ class BluetoothConnectionManager(
             } catch (e: SecurityException) {
                 Log.w(BluetoothConstants.TAG_CONNECTION, "Cannot restore BT name: ${e.message}")
             }
-            prefs.edit { remove("original_bt_name") }
+            prefs.edit().remove("original_bt_name").apply()
         } else {
             Log.w(BluetoothConstants.TAG_CONNECTION, "No saved BT name to restore")
         }

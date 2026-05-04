@@ -17,7 +17,9 @@ import ryu.masters_thesis.presentation.home.implementation.HomeScreenModel
 import ryu.masters_thesis.presentation.settings.domain.SettingsRepository
 import ryu.masters_thesis.presentation.settings.implementation.SettingsRepositoryImpl
 import ryu.masters_thesis.presentation.settings.implementation.SettingsScreenModel
-
+//new imports:
+import org.koin.core.parameter.parametersOf
+import ryu.masters_thesis.feature.bluetoothNeighbourProtokol.domain.NeighbourProtocol
 fun presentationModule() = module {
     // Repositories
     single<ConnectRepository>  { ConnectRepositoryImpl(get(named("client"))) }
@@ -26,8 +28,23 @@ fun presentationModule() = module {
     single<SettingsRepository> { SettingsRepositoryImpl() }
 
     // ScreenModels
-    factory { ConnectScreenModel(get()) }
-    factory { CreateScreenModel(get()) }
+    //factory { ConnectScreenModel(get()) }
+    factory {
+        ConnectScreenModel(
+            get(),
+            get<NeighbourProtocol> { parametersOf(get<BluetoothController>(named("client"))) },
+        )
+    }
+
+
+    //factory { CreateScreenModel(get()) }
+    factory {
+        CreateScreenModel(
+            get(),
+            get<NeighbourProtocol> { parametersOf(get<BluetoothController>(named("server"))) },
+        )
+    }
+
     factory { HomeScreenModel(get()) }
     factory { SettingsScreenModel(get()) }
     factory { (roomName: String, password: String, isServer: Boolean) ->

@@ -7,9 +7,12 @@ import kotlinx.coroutines.launch
 import ryu.masters_thesis.presentation.create.domain.CreateEvent
 import ryu.masters_thesis.presentation.create.domain.CreateOneTimeEvent
 import ryu.masters_thesis.presentation.create.domain.CreateRepository
+// novus importus, sus
+import ryu.masters_thesis.feature.bluetoothNeighbourProtokol.domain.NeighbourProtocol
 
 class CreateScreenModel(
-    private val repository: CreateRepository,
+    private val repository        : CreateRepository,
+    private val neighbourProtocol : NeighbourProtocol,
 ) : ScreenModel {
 
     private val _state = MutableStateFlow(CreateState())
@@ -30,8 +33,9 @@ class CreateScreenModel(
             is CreateEvent.CreateRoomClicked -> createRoom()
             is CreateEvent.ShowQrClicked     -> _state.update { it.copy(showQrDialog = true) }
             is CreateEvent.QrDialogDismissed -> _state.update { it.copy(showQrDialog = false) }
-            is CreateEvent.DismissClicked    -> {
+            is CreateEvent.DismissClicked -> {
                 repository.cleanup()
+                neighbourProtocol.stopDiscovery()
                 screenModelScope.launch {
                     _oneTimeEvents.emit(CreateOneTimeEvent.Dismiss)
                 }
@@ -62,6 +66,7 @@ class CreateScreenModel(
         val state = _state.value
         if (state.password.isEmpty()) return
         screenModelScope.launch {
+            neighbourProtocol.startDiscovery()
             repository.setRoomId(state.roomName)
             val roomId = repository.createRoom(state.password)
             _state.update { it.copy(serverStarted = true) }

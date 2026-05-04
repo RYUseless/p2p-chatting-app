@@ -29,7 +29,8 @@ import ryu.masters_thesis.feature.bluetoothTransportProtocol.data.LinkStateAdver
 import ryu.masters_thesis.feature.bluetoothTransportProtocol.data.RoomAdvertisement
 import ryu.masters_thesis.feature.bluetoothTransportProtocol.domain.NeighbourTransport
 import kotlin.collections.get
-
+//new:
+import android.util.Log
 
 
 class NeighbourProtocolImpl(
@@ -64,6 +65,7 @@ class NeighbourProtocolImpl(
         val self = selfAddress
         val name = selfName
         _discoverySession.update { it.copy(isScanning = true, scanStartedAtMs = now()) }
+        Log.d("BNP", "startDiscovery() self=$self name=$name")
         collectIncoming()
 
         helloJob = scope.launch {
@@ -154,6 +156,7 @@ class NeighbourProtocolImpl(
             lastSeenTimestampMs       = now(),
         )
         val wasNew = existing == null
+        Log.d("BNP", "HELLO from=$address name=$name isNew=$wasNew")
         updateNeighbourList(updated)
         if (wasNew) floodLsa()
     }
@@ -162,6 +165,7 @@ class NeighbourProtocolImpl(
         val lastSeq = seqNoMap[lsa.originId] ?: -1
         if (lsa.sequenceNo <= lastSeq) return
         seqNoMap[lsa.originId] = lsa.sequenceNo
+        Log.d("BNP", "LSA origin=${lsa.originId} seq=${lsa.sequenceNo} ttl=${lsa.ttl} neighbours=${lsa.neighbours}")
 
         lsdb[lsa.originId] = lsa.neighbours
         lsa.neighbours.keys.forEach { addr ->
@@ -209,6 +213,8 @@ class NeighbourProtocolImpl(
         val seqNo = (seqNoMap[self] ?: 0) + 1
         seqNoMap[self] = seqNo
 
+        Log.d("BNP", "FLOOD_LSA self=$self seq=$seqNo neighbours=${currentNeighbours.keys}")
+
         transport.floodLsa(
             LinkStateAdvertisement(
                 originId        = self,
@@ -227,6 +233,10 @@ class NeighbourProtocolImpl(
         val hadChanges = _visibleNodes.value.neighbours.any {
             it.isNeighbourAlive && it.lastSeenTimestampMs < threshold
         }
+
+        //mega bigus logísek
+        Log.d("BNP", "PRUNE check: dead=${_visibleNodes.value.neighbours.filter { it.isNeighbourAlive && it.lastSeenTimestampMs < threshold }.map { it.neighbourBluetoothAddress }}")
+
         if (!hadChanges) return
 
         _visibleNodes.update { current ->
@@ -310,6 +320,8 @@ class NeighbourProtocolImpl(
         _routingTable.update {
             RoutingTable(routes = routes, lastUpdatedMs = nowMs)
         }
+
+        Log.d("BNP", "ROUTING_TABLE: ${routes.map { "${it.key}(${it.value.totalHopCount}hops,cost=${it.value.totalCost})" }}")
     }
 
     private fun linkCost(rssi: Int?): Int =

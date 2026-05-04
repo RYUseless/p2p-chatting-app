@@ -13,3 +13,5 @@ const val NEIGHBOUR_DEAD_MS   = 45_000L
 const val MAX_LSA_TTL         = 5
 const val MAX_ROOM_ADV_HOPS   = 3
 const val MAX_TUNNEL_HOPS     = 6
+
+const val BNP_CHANNEL_ID = "NBR_PROTOCOL"

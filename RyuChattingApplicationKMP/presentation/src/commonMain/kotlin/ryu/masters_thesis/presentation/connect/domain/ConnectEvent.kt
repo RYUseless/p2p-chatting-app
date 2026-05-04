@@ -7,6 +7,8 @@ sealed class ConnectEvent {
     data class QrScanned(val value: String) : ConnectEvent()
     object DialogDismissed : ConnectEvent()
     object DismissClicked : ConnectEvent()
-
     object ReconnectClicked : ConnectEvent()
+
+    //new
+    data class MeshPeerClicked(val address: String, val name: String?) : ConnectEvent()
 }

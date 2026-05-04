@@ -58,9 +58,9 @@ kotlin {
             dependencies {
                 implementation(libs.kotlinx.coroutines.android)
                 implementation(libs.androidx.core.ktx)
+                implementation(libs.androidx.core)   // hopefully hotfix?
             }
         }
-
         getByName("androidDeviceTest") {
             dependencies {
                 implementation(libs.androidx.runner)

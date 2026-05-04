@@ -13,6 +13,12 @@ import ryu.masters_thesis.feature.bluetoothTransportProtocol.data.LinkStateAdver
 import ryu.masters_thesis.feature.bluetoothTransportProtocol.data.RelayPacket
 import ryu.masters_thesis.feature.bluetoothTransportProtocol.data.RoomAdvertisement
 import ryu.masters_thesis.feature.bluetoothTransportProtocol.domain.NeighbourTransport
+//bitchass importíci
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import ryu.masters_thesis.feature.bluetoothNeighbourProtokol.domain.BNP_CHANNEL_ID
 
 class NeighbourTransportImpl(
     private val controller: BluetoothController,
@@ -31,6 +37,26 @@ class NeighbourTransportImpl(
     override val incomingRelay: Flow<RelayPacket>             = _incomingRelay.asSharedFlow()
     override val incomingLsaRequest: Flow<String>             = _incomingLsaRequest.asSharedFlow()
 
+    //hokus pokus
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    init {
+        scope.launch {
+            controller.incomingRawMessages.collect { (senderMac, channelId, rawPayload) ->
+                if (channelId == BNP_CHANNEL_ID) {
+                    when {
+                        rawPayload.startsWith(MSG_NBR_HELLO)       -> parseHello(rawPayload)
+                        rawPayload.startsWith(MSG_NBR_LSA)         -> parseLsa(rawPayload)
+                        rawPayload.startsWith(MSG_NBR_LSA_REQUEST) -> parseLsaRequest(rawPayload)
+                        rawPayload.startsWith(MSG_NBR_ROOM_ADV)    -> parseRoomAdv(rawPayload)
+                        rawPayload.startsWith(MSG_NBR_TUNNEL)      -> parseRelay(rawPayload)
+                    }
+                }
+            }
+        }
+    }
+    /*
+
     suspend fun onRawMessage(senderAddress: String, raw: String) {
         when {
             raw.startsWith(MSG_NBR_HELLO)       -> parseHello(raw)
@@ -40,6 +66,8 @@ class NeighbourTransportImpl(
             raw.startsWith(MSG_NBR_TUNNEL)      -> parseRelay(raw)
         }
     }
+
+     */
 
     override fun sendHello(selfAddress: String, selfName: String?) {
         val name = selfName ?: ""

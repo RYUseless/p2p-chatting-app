@@ -14,6 +14,7 @@ import ryu.masters_thesis.feature.bluetooth.domain.BluetoothController
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothDevice
 import ryu.masters_thesis.feature.bluetooth.domain.ConnectionState
 import ryu.masters_thesis.feature.messages.domain.Message
+import kotlin.math.log
 
 abstract class BluetoothControllerBase(
     protected val context: Context,
@@ -23,6 +24,10 @@ abstract class BluetoothControllerBase(
     protected val btManager: BluetoothManager? =
         context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
     protected val adapter: BluetoothAdapter? = btManager?.adapter
+
+    //new values:
+    private val _incomingRawMessages = MutableSharedFlow<Triple<String, String, String>>()
+    override val incomingRawMessages: SharedFlow<Triple<String, String, String>> = _incomingRawMessages.asSharedFlow()
 
     protected val _scannedDevices      = MutableStateFlow<List<BluetoothDevice>>(emptyList())
     protected val _isConnected         = MutableStateFlow(false)
@@ -159,6 +164,7 @@ abstract class BluetoothControllerBase(
                     payload
                 }
                 Log.d(BluetoothConstants.TAG_BASE, "MSG_DATA: channelId=$channelId len=${decrypted.length}")
+                scope.launch { _incomingRawMessages.emit(Triple(senderMac ?: "", channelId, decrypted)) }
                 scope.launch(Dispatchers.Main) { addMessage(channelId, senderMac ?: "Remote", decrypted) }
             }
             BluetoothConstants.MSG_DISCONNECT -> {

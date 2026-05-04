@@ -6,8 +6,11 @@ sealed class ConnectOneTimeEvent {
     //data class NavigateToChat(val roomId: String) : ConnectOneTimeEvent()
     data class ShowError(val message: String) : ConnectOneTimeEvent()
     object Dismiss : ConnectOneTimeEvent()
-
     data class NavigateToChat(val roomId: String, val password: String) : ConnectOneTimeEvent()
-
     object Disconnected : ConnectOneTimeEvent()
+    data class ShowRelayInfo(
+        val destinationAddress : String,
+        val name               : String?,
+        val hopCount           : Int,
+    ) : ConnectOneTimeEvent()
 }
