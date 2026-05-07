@@ -154,10 +154,8 @@ class BluetoothControllerServer(
 
     // ── onDisconnectPacket override ───────────────────────────────────────────
 
-    override fun onDisconnectPacket(senderMac: String?) {
-        // Klient nás informoval o odpojení → read thread to stejně detekuje,
-        // ale pro jistotu session odstraníme okamžitě
-        Log.d(BluetoothConstants.TAG_SERVER, "onDisconnectPacket from $senderMac")
+    override fun onDisconnectPacket(senderMac: String?, payload: String) {
+        Log.d(BluetoothConstants.TAG_SERVER, "onDisconnectPacket from $senderMac payload=$payload")
         if (senderMac != null) {
             serverManager?.removeSession(senderMac)
         }

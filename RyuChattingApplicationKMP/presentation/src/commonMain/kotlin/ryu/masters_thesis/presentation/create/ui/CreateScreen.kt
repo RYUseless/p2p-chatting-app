@@ -7,10 +7,11 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import ryu.masters_thesis.presentation.chatroom.ui.ChatRoomScreen
 import ryu.masters_thesis.presentation.component.ui.SwipeableDismissWrapper
+import ryu.masters_thesis.presentation.create.domain.CreateEvent
 import ryu.masters_thesis.presentation.create.domain.CreateOneTimeEvent
 import ryu.masters_thesis.presentation.create.implementation.CreateScreenModel
 
-object CreateScreen : Screen {
+data class CreateScreen(val roomName: String? = null) : Screen {
 
     @Composable
     override fun Content() {
@@ -19,6 +20,9 @@ object CreateScreen : Screen {
         val state by screenModel.state.collectAsState()
 
         LaunchedEffect(Unit) {
+            roomName?.let {
+                screenModel.onEvent(CreateEvent.RoomNameChanged(it))
+            }
             screenModel.oneTimeEvents.collect { event ->
                 when (event) {
                     is CreateOneTimeEvent.NavigateToChat -> navigator.push(ChatRoomScreen(event.roomId, event.password))

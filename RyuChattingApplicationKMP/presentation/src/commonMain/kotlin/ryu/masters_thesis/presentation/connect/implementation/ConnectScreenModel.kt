@@ -17,9 +17,17 @@ import ryu.masters_thesis.feature.bluetoothNeighbourProtokol.domain.NeighbourPro
 //logísci, KMP perhaps
 import co.touchlab.kermit.Logger
 
+import ryu.masters_thesis.feature.messages.domain.MessageRepository
+import ryu.masters_thesis.data.vault.domain.RoomRole
+import kotlin.time.Clock
+import ryu.masters_thesis.presentation.home.domain.ScanCoordinator
+import ryu.masters_thesis.presentation.home.domain.ScanOwner
+
 class ConnectScreenModel(
     private val repository        : ConnectRepository,
     private val neighbourProtocol : NeighbourProtocol,
+    private val messageRepo       : MessageRepository,
+    private val scanCoordinator   : ScanCoordinator,
 ) : ScreenModel {
 
     // Stav UI – StateFlow, ConnectContent collectuje přes collectAsState()
@@ -30,11 +38,14 @@ class ConnectScreenModel(
     private val _oneTimeEvents = MutableSharedFlow<ConnectOneTimeEvent>()
     val oneTimeEvents: SharedFlow<ConnectOneTimeEvent> = _oneTimeEvents.asSharedFlow()
 
+    private var activeOwner: ScanOwner? = null
+
     init {
         observeBluetoothState()
     }
 
     // Jediný vstupní bod pro UI akce
+
     fun onEvent(event: ConnectEvent) {
         when (event) {
             is ConnectEvent.DeviceClicked     -> selectDevice(event.device)
@@ -43,6 +54,11 @@ class ConnectScreenModel(
             is ConnectEvent.DialogDismissed   -> _state.update { it.copy(selectedDevice = null) }
             is ConnectEvent.ReconnectClicked  -> screenModelScope.launch { repository.reconnect() }
             is ConnectEvent.MeshPeerClicked   -> onMeshPeerClicked(event.address, event.name)
+            is ConnectEvent.DirectConnect     -> screenModelScope.launch {
+                activeOwner = ScanOwner.RECONNECT
+                scanCoordinator.acquire(ScanOwner.RECONNECT) { }
+                selectDevice(event.device)
+            }
             is ConnectEvent.DismissClicked    -> {
                 repository.unregisterReceiver()
                 neighbourProtocol.stopDiscovery()
@@ -88,8 +104,23 @@ class ConnectScreenModel(
                 repository.getIsVerified(),
                 repository.getCurrentRoomId(),
                 repository.getPassword(),
-            ) { verified, roomId, password ->
+                repository.getSessionDevice(),
+            ) { values ->
+                val verified      = values[0] as Boolean
+                val roomId        = values[1] as String?
+                val password      = values[2] as String?
+                val sessionDevice = values[3] as ScannedDeviceUiModel?
                 if (verified && roomId != null && password != null) {
+                    messageRepo.storeRoomMetadata(
+                        roomId      = roomId,
+                        roomName    = roomId,
+                        password    = password,
+                        role        = RoomRole.CLIENT,
+                        timestamp   = Clock.System.now().toEpochMilliseconds(),
+                        peerAddress = sessionDevice?.address,
+                        isSaved     = false,
+                    )
+                    // TODO: isSaved flag
                     _oneTimeEvents.emit(ConnectOneTimeEvent.NavigateToChat(roomId, password))
                 }
             }.collect()
@@ -181,14 +212,25 @@ class ConnectScreenModel(
     }
 
     fun restartScanning() {
-        neighbourProtocol.startDiscovery()   // ← přidat
-        _state.update { it.copy(selectedDevice = null, needsPassword = false) }
         screenModelScope.launch {
+            activeOwner = ScanOwner.CONNECT
+            scanCoordinator.acquire(ScanOwner.CONNECT) { stopScanning() }
+            neighbourProtocol.startDiscovery()
+            _state.update { it.copy(selectedDevice = null, needsPassword = false) }
             repository.startClientMode()
+            startCountdown()
         }
-        startCountdown()
     }
-    //nova funkce
+
+    private fun stopScanning() {
+        repository.unregisterReceiver()
+        neighbourProtocol.stopDiscovery()
+    }
+
+    override fun onDispose() {
+        activeOwner?.let { scanCoordinator.release(it) }
+        neighbourProtocol.stopDiscovery()
+    }
     private fun onMeshPeerClicked(address: String, name: String?) {
         val isDirectNeighbour = _state.value.meshNodes
             .any { it.neighbourBluetoothAddress == address && it.isNeighbourAlive }
@@ -210,5 +252,9 @@ class ConnectScreenModel(
                 )
             }
         }
+    }
+
+    fun applyPrefill(roomName: String) {
+        _state.update { it.copy(prefillRoomName = roomName) }
     }
 }

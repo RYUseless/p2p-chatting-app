@@ -13,6 +13,7 @@ import androidx.annotation.RequiresApi
 //import androidx.core.app.NotificationCompat
 //import androidx.core.content.edit
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothConstants
+import ryu.masters_thesis.feature.lifecycle.implementation.AppTerminationRegistry
 
 class BluetoothCleanupService : Service() {
 
@@ -40,7 +41,10 @@ class BluetoothCleanupService : Service() {
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        Log.i(BluetoothConstants.TAG_CLEANUP, "onTaskRemoved: app killed, restoring BT name")
+        Log.i(BluetoothConstants.TAG_CLEANUP, "onTaskRemoved: app killed")
+
+        AppTerminationRegistry.terminateAll()
+
         val adapter = (getSystemService(BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
         val prefs   = getSharedPreferences("bluetooth_state", MODE_PRIVATE)
         val saved   = originalDeviceName ?: prefs.getString("original_bt_name", null)
@@ -52,6 +56,7 @@ class BluetoothCleanupService : Service() {
             } catch (e: SecurityException) {
                 Log.w(BluetoothConstants.TAG_CLEANUP, "Cannot restore BT name: ${e.message}")
             }
+            //todo: check
             prefs.edit().remove("original_bt_name").apply()
         } else {
             Log.w(BluetoothConstants.TAG_CLEANUP, "Nothing to restore: adapter=${adapter != null} savedName=$saved")

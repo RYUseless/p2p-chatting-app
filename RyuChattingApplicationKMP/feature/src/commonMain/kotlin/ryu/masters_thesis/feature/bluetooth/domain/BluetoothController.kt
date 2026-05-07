@@ -42,4 +42,7 @@ interface BluetoothController {
     val incomingRawMessages: SharedFlow<Triple<String, String, String>>
     // Triple: senderMac, channelId, rawPayload
 
+    val serverHandoffRequired: StateFlow<Boolean>
+    fun clearServerHandoff()
+
 }

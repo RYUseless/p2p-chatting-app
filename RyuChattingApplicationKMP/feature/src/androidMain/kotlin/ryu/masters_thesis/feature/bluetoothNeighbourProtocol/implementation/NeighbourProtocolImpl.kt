@@ -31,12 +31,14 @@ import ryu.masters_thesis.feature.bluetoothTransportProtocol.domain.NeighbourTra
 import kotlin.collections.get
 //new:
 import android.util.Log
-
+import ryu.masters_thesis.feature.lifecycle.implementation.AppTerminationRegistry
+import kotlinx.coroutines.cancel
+import ryu.masters_thesis.feature.lifecycle.domain.Terminable
 
 class NeighbourProtocolImpl(
-    private val transport: NeighbourTransport,
+    private val transport:   NeighbourTransport,
     private val localDevice: LocalDevice,
-) : NeighbourProtocol {
+) : NeighbourProtocol, Terminable {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -90,13 +92,25 @@ class NeighbourProtocolImpl(
         }
     }
 
+    init {
+        AppTerminationRegistry.register(this)
+    }
+
     override fun stopDiscovery() {
         helloJob?.cancel()
         lsaJob?.cancel()
         deadJob?.cancel()
+        scope.cancel()
         _discoverySession.update {
             it.copy(isScanning = false, lastScanFinishedAtMs = now())
         }
+    }
+
+    override fun onTerminate() {
+        Log.d("BNP", "onTerminate: stopping discovery and cancelling scope")
+        stopDiscovery()
+        scope.cancel()
+        AppTerminationRegistry.unregister(this)
     }
 
     override fun requestLsaUpdate() {

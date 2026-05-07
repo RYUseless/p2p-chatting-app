@@ -44,6 +44,10 @@ abstract class BluetoothControllerBase(
     protected val _canReconnect        = MutableStateFlow(false)
     protected val _sessionDevice       = MutableStateFlow<BluetoothDevice?>(null)
 
+    protected val _serverHandoffRequired = MutableStateFlow(false)
+    override val serverHandoffRequired: StateFlow<Boolean> = _serverHandoffRequired.asStateFlow()
+    override fun clearServerHandoff() { _serverHandoffRequired.value = false }
+
     override val scannedDevices:      StateFlow<List<BluetoothDevice>>     = _scannedDevices.asStateFlow()
     override val isConnected:         StateFlow<Boolean>                    = _isConnected.asStateFlow()
     override val isVerified:          StateFlow<Boolean>                    = _isVerified.asStateFlow()
@@ -169,7 +173,7 @@ abstract class BluetoothControllerBase(
             }
             BluetoothConstants.MSG_DISCONNECT -> {
                 Log.i(BluetoothConstants.TAG_BASE, "DISCONNECT: channelId=$channelId reason=$payload sender=$senderMac")
-                scope.launch(Dispatchers.Main) { onDisconnectPacket(senderMac) }
+                scope.launch(Dispatchers.Main) { onDisconnectPacket(senderMac, payload) }
             }
             else -> Log.w(BluetoothConstants.TAG_BASE, "unknown type=$type")
         }
@@ -282,8 +286,7 @@ abstract class BluetoothControllerBase(
             resetConnectionState()
         }
     }
-    protected open fun onDisconnectPacket(senderMac: String?) {
-        // Base default — pro klienta
+    protected open fun onDisconnectPacket(senderMac: String?, payload: String) {
         _isConnected.value     = false
         _isVerified.value      = false
         _connectionState.value = ConnectionState.IDLE

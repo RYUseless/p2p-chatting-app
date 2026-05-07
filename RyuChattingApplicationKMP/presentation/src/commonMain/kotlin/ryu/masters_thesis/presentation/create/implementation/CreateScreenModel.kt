@@ -10,9 +10,13 @@ import ryu.masters_thesis.presentation.create.domain.CreateRepository
 // novus importus, sus
 import ryu.masters_thesis.feature.bluetoothNeighbourProtokol.domain.NeighbourProtocol
 
+import ryu.masters_thesis.feature.messages.domain.MessageRepository
+import ryu.masters_thesis.data.vault.domain.RoomRole
+import kotlin.time.Clock
 class CreateScreenModel(
     private val repository        : CreateRepository,
     private val neighbourProtocol : NeighbourProtocol,
+    private val messageRepo       : MessageRepository,
 ) : ScreenModel {
 
     private val _state = MutableStateFlow(CreateState())
@@ -47,8 +51,8 @@ class CreateScreenModel(
         if (!_state.value.serverStarted) {
             repository.cleanup()
         }
+        neighbourProtocol.stopDiscovery()
     }
-
     private fun observeRepository() {
         screenModelScope.launch {
             repository.getCurrentRoomId().collect { roomId ->
@@ -71,6 +75,16 @@ class CreateScreenModel(
             val roomId = repository.createRoom(state.password)
             _state.update { it.copy(serverStarted = true) }
             if (roomId != null) {
+                messageRepo.storeRoomMetadata(
+                    roomId      = roomId,
+                    roomName    = state.roomName,
+                    password    = state.password,
+                    role        = RoomRole.SERVER,
+                    timestamp   = Clock.System.now().toEpochMilliseconds(),
+                    peerAddress = null,
+                    isSaved     = false,
+                )
+                // TODO: isSaved flag
                 _oneTimeEvents.emit(CreateOneTimeEvent.NavigateToChat(roomId, state.password))
             }
         }

@@ -14,11 +14,23 @@ import ryu.masters_thesis.core.cryptographyUtils.domain.CryptoManager
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothConstants
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothDevice
 import ryu.masters_thesis.feature.bluetooth.domain.ConnectionState
+import ryu.masters_thesis.feature.lifecycle.domain.Terminable
+import ryu.masters_thesis.feature.lifecycle.implementation.AppTerminationRegistry
 
 class BluetoothControllerClient(
     context: Context,
     cryptoFactory: (channelId: String) -> CryptoManager,
-) : BluetoothControllerBase(context, cryptoFactory) {
+) : BluetoothControllerBase(context, cryptoFactory), Terminable {
+
+    init {
+        AppTerminationRegistry.register(this)
+    }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    override fun onTerminate() {
+        cleanup()
+        AppTerminationRegistry.unregister(this)
+    }
 
     private var discoveryJob:      Job? = null
     private var receiverRegistered      = false
@@ -29,12 +41,18 @@ class BluetoothControllerClient(
     override fun sendMessageTo(mac: String, packet: String) = Unit
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-    override fun onDisconnectPacket(senderMac: String?) {
-        wasCleanDisconnect     = true
-        _isConnected.value     = false
-        _isVerified.value      = false
-        _connectionState.value = ConnectionState.IDLE
-        connectionManager?.closeConnection()
+    override fun onDisconnectPacket(senderMac: String?, payload: String) {
+        if (payload == BluetoothConstants.DISCONNECT_SERVER_CLOSED) {
+            Log.i(BluetoothConstants.TAG_CLIENT, "SERVER_CLOSED → triggering handoff")
+            _serverHandoffRequired.value = true
+            // isConnected/isVerified necháme — ChatRoomScreenModel se postará o přechod
+        } else {
+            wasCleanDisconnect     = true
+            _isConnected.value     = false
+            _isVerified.value      = false
+            _connectionState.value = ConnectionState.IDLE
+            connectionManager?.closeConnection()
+        }
     }
 
     private val receiver = object : BroadcastReceiver() {

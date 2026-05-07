@@ -40,6 +40,9 @@ kotlin {
                 // :core — CryptoManager interface
                 implementation(project(":core"))
 
+                // :data — MessageVault
+                implementation(project(":data"))
+
                 // Coroutines + Flow
                 implementation(libs.kotlinx.coroutines.core)
 

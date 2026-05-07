@@ -11,15 +11,16 @@ import ryu.masters_thesis.presentation.component.ui.SwipeableDismissWrapper
 import ryu.masters_thesis.presentation.connect.domain.ConnectOneTimeEvent
 import ryu.masters_thesis.presentation.connect.implementation.ConnectScreenModel
 
-object ConnectScreen : Screen {
+data class ConnectScreen(val roomName: String? = null) : Screen {
 
     @Composable
     override fun Content() {
-        val navigator  = LocalNavigator.currentOrThrow
+        val navigator   = LocalNavigator.currentOrThrow
         val screenModel = koinScreenModel<ConnectScreenModel>()
         val state by screenModel.state.collectAsState()
 
         LaunchedEffect(Unit) {
+            roomName?.let { screenModel.applyPrefill(it) }
             screenModel.restartScanning()
             screenModel.oneTimeEvents.collect { event ->
                 when (event) {
@@ -27,7 +28,7 @@ object ConnectScreen : Screen {
                     is ConnectOneTimeEvent.Dismiss        -> navigator.pop()
                     is ConnectOneTimeEvent.ShowError      -> navigator.pop()
                     is ConnectOneTimeEvent.Disconnected   -> { }
-                    is ConnectOneTimeEvent.ShowRelayInfo -> {
+                    is ConnectOneTimeEvent.ShowRelayInfo  -> {
                         Logger.d("BNP") { "Relay to ${event.name}@${event.destinationAddress} via ${event.hopCount} hops" }
                         navigator.pop()
                     }

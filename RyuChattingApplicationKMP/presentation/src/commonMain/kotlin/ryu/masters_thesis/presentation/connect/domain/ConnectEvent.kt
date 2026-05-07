@@ -11,4 +11,7 @@ sealed class ConnectEvent {
 
     //new
     data class MeshPeerClicked(val address: String, val name: String?) : ConnectEvent()
+
+    //even more new: XD
+    data class DirectConnect(val device: ScannedDeviceUiModel) : ConnectEvent()
 }

@@ -9,6 +9,9 @@ import ryu.masters_thesis.feature.messages.domain.Message
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 
+//todo: KILL
+
+/*
 // rn pojmenovane takto, protože noop existuje v presentation stále :)
 internal class BluetoothControllerNoop : BluetoothController {
     override val scannedDevices      = MutableStateFlow(emptyList<BluetoothDevice>())
@@ -42,3 +45,5 @@ internal class BluetoothControllerNoop : BluetoothController {
     //new one:
     override val incomingRawMessages: SharedFlow<Triple<String, String, String>> = MutableSharedFlow()
 }
+
+ */

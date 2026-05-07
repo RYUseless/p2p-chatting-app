@@ -97,6 +97,18 @@ class ChatRoomScreenModel(
                 _state.update { it.copy(currentRoomId = roomId) }
             }
         }
+        //nova corutine
+        screenModelScope.launch {
+            repository.getServerHandoffRequired().collect { required ->
+                if (required) {
+                    val roomId   = _state.value.currentRoomId ?: roomName
+                    val password = _state.value.roomPassword
+                    repository.promoteToServer(roomId, password)
+                    _state.update { it.copy(isConnected = false, isVerified = false) }
+                }
+            }
+        }
+
     }
 
     private fun sendMessage() {

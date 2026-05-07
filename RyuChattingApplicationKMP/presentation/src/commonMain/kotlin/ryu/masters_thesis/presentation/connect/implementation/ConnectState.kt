@@ -22,4 +22,6 @@ data class ConnectState(
     //nova pole
     val meshNodes  : List<NeighbouringDevice> = emptyList(),
     val meshRoutes : RoutingTable             = RoutingTable(),
+
+    val prefillRoomName: String?             = null,
 )

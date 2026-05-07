@@ -6,6 +6,8 @@ import org.koin.core.context.startKoin
 import ryu.masters_thesis.core.di.domain.corePlatformModule
 import ryu.masters_thesis.feature.di.domain.featurePlatformModule
 import ryu.masters_thesis.presentation.di.presentationModule
+import org.koin.core.context.GlobalContext
+import ryu.masters_thesis.feature.bluetoothFinderProtocol.domain.FinderResponder
 
 class MyApplication : Application() {
     override fun onCreate() {
@@ -18,5 +20,7 @@ class MyApplication : Application() {
                 presentationModule(),
             )
         }
+        // Eager start BFP responder
+        GlobalContext.get().get<FinderResponder>()
     }
 }
