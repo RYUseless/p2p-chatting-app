@@ -24,7 +24,14 @@ data class ConnectScreen(val roomName: String? = null) : Screen {
             screenModel.restartScanning()
             screenModel.oneTimeEvents.collect { event ->
                 when (event) {
-                    is ConnectOneTimeEvent.NavigateToChat -> navigator.push(ChatRoomScreen(event.roomId, event.password))
+                    //is ConnectOneTimeEvent.NavigateToChat -> navigator.push(ChatRoomScreen(event.roomId, event.password))
+                    is ConnectOneTimeEvent.NavigateToChat -> navigator.push(
+                        ChatRoomScreen(
+                            roomName = event.roomId,
+                            password = event.password,
+                            forceIsServer = false
+                        )
+                    )
                     is ConnectOneTimeEvent.Dismiss        -> navigator.pop()
                     is ConnectOneTimeEvent.ShowError      -> navigator.pop()
                     is ConnectOneTimeEvent.Disconnected   -> { }

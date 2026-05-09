@@ -91,6 +91,7 @@ kotlin {
                 //datetime shittemitte
                 implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.1")
 
+                implementation("androidx.datastore:datastore-preferences-core:1.1.1")
             }
         }
 

@@ -16,7 +16,7 @@ import ryu.masters_thesis.presentation.settings.implementation.SettingsState
 
 @Composable
 fun SettingsContent(
-    state: SettingsState,
+    state:   SettingsState,
     onEvent: (SettingsEvent) -> Unit,
 ) {
     val settings        = LocalAppSettings.current
@@ -30,6 +30,7 @@ fun SettingsContent(
 
     var expandedLanguage by remember { mutableStateOf(false) }
     var expandedTheme    by remember { mutableStateOf(false) }
+    var nicknameInput    by remember(state.userNickname) { mutableStateOf(state.userNickname) }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -49,6 +50,29 @@ fun SettingsContent(
         )
 
         Spacer(modifier = Modifier.height(16.dp))
+
+        // Nickname input
+        Row(
+            modifier              = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment     = Alignment.CenterVertically,
+        ) {
+            OutlinedTextField(
+                value         = nicknameInput,
+                onValueChange = { nicknameInput = it },
+                label         = { Text(t.settingsNicknameLabel) },
+                singleLine    = true,
+                modifier      = Modifier.weight(1f),
+            )
+            Button(
+                onClick  = { onEvent(SettingsEvent.NicknameChanged(nicknameInput.trim())) },
+                colors   = buttonColors,
+            ) {
+                Text(t.close.let { "Save" })
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Language dropdown
         Row(

@@ -34,11 +34,10 @@ class MessageRepositoryImpl(
         roomId:      String,
         roomName:    String,
         password:    String,
-        role:        RoomRole,
         timestamp:   Long,
         peerAddress: String?,
         isSaved:     Boolean,
-    ): Result<Unit> = vault.storeRoomMetadata(roomId, roomName, password, role, timestamp, peerAddress, isSaved)
+    ): Result<Unit> = vault.storeRoomMetadata(roomId, roomName, password, timestamp, peerAddress, isSaved)
 
     override suspend fun setIsSaved(roomId: String, isSaved: Boolean): Result<Unit> =
         vault.setIsSaved(roomId, isSaved)
@@ -49,5 +48,15 @@ class MessageRepositoryImpl(
 
     override fun observeRoomsFlow(): Flow<List<RoomSummary>> =
         vault.observeRooms()
+
+
+    override fun observeIsSaved(roomId: String): Flow<Boolean> =
+        vault.observeIsSaved(roomId)
+
+    override suspend fun updatePeerAddress(roomId: String, peerAddress: String): Result<Unit> =
+        vault.updatePeerAddress(roomId, peerAddress)
+
+    override suspend fun getIsSaved(roomId: String): Boolean =
+        vault.getIsSaved(roomId)
 
 }

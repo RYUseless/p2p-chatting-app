@@ -24,17 +24,17 @@ object AppTerminationRegistry {
     }
 
     fun terminateAll() {
-        synchronized(registered) {
-            Log.i(TAG, "terminateAll: ${registered.size} components")
-            registered.forEach { component ->
-                try {
-                    component.onTerminate()
-                    Log.d(TAG, "terminated: ${component::class.simpleName}")
-                } catch (e: Exception) {
-                    Log.e(TAG, "terminate failed for ${component::class.simpleName}: ${e.message}")
-                }
+        val snapshot = synchronized(registered) {
+            registered.toList().also { registered.clear() }
+        }
+        Log.i(TAG, "terminateAll: ${snapshot.size} components")
+        snapshot.forEach { component ->
+            try {
+                component.onTerminate()
+                Log.d(TAG, "terminated: ${component::class.simpleName}")
+            } catch (e: Exception) {
+                Log.e(TAG, "terminate failed for ${component::class.simpleName}: ${e.message}")
             }
-            registered.clear()
         }
     }
 }

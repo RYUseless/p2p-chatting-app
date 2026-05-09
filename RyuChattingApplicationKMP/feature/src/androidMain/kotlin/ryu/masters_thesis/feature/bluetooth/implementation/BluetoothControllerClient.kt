@@ -14,6 +14,7 @@ import ryu.masters_thesis.core.cryptographyUtils.domain.CryptoManager
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothConstants
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothDevice
 import ryu.masters_thesis.feature.bluetooth.domain.ConnectionState
+import ryu.masters_thesis.feature.bluetooth.domain.HandoffData
 import ryu.masters_thesis.feature.lifecycle.domain.Terminable
 import ryu.masters_thesis.feature.lifecycle.implementation.AppTerminationRegistry
 
@@ -229,6 +230,7 @@ class BluetoothControllerClient(
         }
     }
 
+    /*
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun cleanup() {
         Log.d(BluetoothConstants.TAG_CLIENT, "cleanup")
@@ -236,6 +238,18 @@ class BluetoothControllerClient(
         connectionManager?.closeConnection()
         scope.cancel()
     }
+
+     */
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    override fun cleanup() {
+        _isServer.value = false //maybe?
+        Log.d(BluetoothConstants.TAG_CLIENT, "cleanup")
+        unregisterReceiver()
+        connectionManager?.closeConnection()
+
+        scope.coroutineContext.cancelChildren()
+    }
+
 
     override fun submitServerPassword(channelId: String, password: String) = Unit
 
@@ -305,6 +319,29 @@ class BluetoothControllerClient(
                     _connectionError.value = "Device not found: ${device.address}"
                 }
             }
+        }
+    }
+
+    override suspend fun triggerHandoffAndShutdown(successorMac: String) = Unit
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    suspend fun handleHandoffMessage(payload: String, myMacAddress: String) {
+        val parts = payload.split("|")
+        if (parts.size < 2) return
+        val successorMac = parts[0]
+        val roomId = parts[1]
+
+        withContext(Dispatchers.IO) {
+            connectionManager?.closeConnection()
+        }
+
+        if (successorMac == myMacAddress) {
+            _handoffEvent.emit(HandoffData.PromoteToServer(roomId))
+        } else {
+            withContext(Dispatchers.Main) {
+                _connectionState.value = ConnectionState.RECONNECTING
+            }
+            _handoffEvent.emit(HandoffData.SearchNewServer(roomId))
         }
     }
 }

@@ -6,11 +6,10 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "room_metadata")
 data class RoomMetadata(
     @PrimaryKey
-    val hashedRoomId:      String,
-    val encryptedRoomName: String,
-    val encryptedPassword: String,
-    val role:              String,
-    val lastTimestamp:     Long,
-    val peerBluetoothAddress: String? = null,
-    val isSaved:             Boolean  = false,
+    val hashedRoomId:         String,
+    val encryptedRoomName:    String,
+    val encryptedPassword:    String,
+    val lastTimestamp:        Long,
+    val peerBluetoothAddress: String?  = null,
+    val isSaved:              Boolean  = false,
 )

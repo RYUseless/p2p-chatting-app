@@ -6,4 +6,6 @@ sealed class ChatRoomOneTimeEvent {
     data class ShowError(val message: String) : ChatRoomOneTimeEvent()
     // TODO DUMMY: až bude file picker dostupný z :core
     object OpenFilePicker : ChatRoomOneTimeEvent()
+
+    data class ReloadAsServer(val roomId: String) : ChatRoomOneTimeEvent()
 }

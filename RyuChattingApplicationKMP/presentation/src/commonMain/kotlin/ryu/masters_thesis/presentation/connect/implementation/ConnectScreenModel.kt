@@ -22,6 +22,7 @@ import ryu.masters_thesis.data.vault.domain.RoomRole
 import kotlin.time.Clock
 import ryu.masters_thesis.presentation.home.domain.ScanCoordinator
 import ryu.masters_thesis.presentation.home.domain.ScanOwner
+import kotlinx.coroutines.Job
 
 class ConnectScreenModel(
     private val repository        : ConnectRepository,
@@ -61,7 +62,7 @@ class ConnectScreenModel(
             }
             is ConnectEvent.DismissClicked    -> {
                 repository.unregisterReceiver()
-                neighbourProtocol.stopDiscovery()
+                //neighbourProtocol.stopDiscovery()
                 screenModelScope.launch {
                     _oneTimeEvents.emit(ConnectOneTimeEvent.Dismiss)
                 }
@@ -110,17 +111,8 @@ class ConnectScreenModel(
                 val roomId        = values[1] as String?
                 val password      = values[2] as String?
                 val sessionDevice = values[3] as ScannedDeviceUiModel?
+                // bughunting oprava
                 if (verified && roomId != null && password != null) {
-                    messageRepo.storeRoomMetadata(
-                        roomId      = roomId,
-                        roomName    = roomId,
-                        password    = password,
-                        role        = RoomRole.CLIENT,
-                        timestamp   = Clock.System.now().toEpochMilliseconds(),
-                        peerAddress = sessionDevice?.address,
-                        isSaved     = false,
-                    )
-                    // TODO: isSaved flag
                     _oneTimeEvents.emit(ConnectOneTimeEvent.NavigateToChat(roomId, password))
                 }
             }.collect()
@@ -182,8 +174,11 @@ class ConnectScreenModel(
         }
     }
 
+    private var countdownJob: Job? = null
+
     private fun startCountdown() {
-        screenModelScope.launch {
+        countdownJob?.cancel()
+        countdownJob = screenModelScope.launch {
             val timeoutSeconds = (BluetoothConstants.DISCOVERY_TIMEOUT_MS / 1000).toInt()
             for (i in timeoutSeconds downTo 0) {
                 _state.update { it.copy(remainingSeconds = i) }
@@ -215,7 +210,7 @@ class ConnectScreenModel(
         screenModelScope.launch {
             activeOwner = ScanOwner.CONNECT
             scanCoordinator.acquire(ScanOwner.CONNECT) { stopScanning() }
-            neighbourProtocol.startDiscovery()
+            //neighbourProtocol.startDiscovery()
             _state.update { it.copy(selectedDevice = null, needsPassword = false) }
             repository.startClientMode()
             startCountdown()
@@ -224,12 +219,12 @@ class ConnectScreenModel(
 
     private fun stopScanning() {
         repository.unregisterReceiver()
-        neighbourProtocol.stopDiscovery()
+        //neighbourProtocol.stopDiscovery()
     }
 
     override fun onDispose() {
         activeOwner?.let { scanCoordinator.release(it) }
-        neighbourProtocol.stopDiscovery()
+        //neighbourProtocol.stopDiscovery()
     }
     private fun onMeshPeerClicked(address: String, name: String?) {
         val isDirectNeighbour = _state.value.meshNodes

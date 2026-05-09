@@ -17,7 +17,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ryu.masters_thesis.core.configuration.getTranslations
-import ryu.masters_thesis.data.vault.domain.RoomRole
 import ryu.masters_thesis.data.vault.domain.RoomSummary
 import ryu.masters_thesis.presentation.component.ui.LocalAppSettings
 import ryu.masters_thesis.presentation.home.domain.HomeEvent
@@ -234,7 +233,6 @@ private fun RoomSummaryItem(
                         if (!room.isSaved) {
                             UnsavedBadge()
                         }
-                        RoleBadge(role = room.role)
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
@@ -248,6 +246,7 @@ private fun RoomSummaryItem(
     }
 }
 
+/*
 @Composable
 private fun RoleBadge(role: RoomRole) {
     val (label, containerColor, contentColor) = when (role) {
@@ -275,6 +274,8 @@ private fun RoleBadge(role: RoomRole) {
     }
 }
 
+
+ */
 @Composable
 private fun UnsavedBadge() {
     Surface(

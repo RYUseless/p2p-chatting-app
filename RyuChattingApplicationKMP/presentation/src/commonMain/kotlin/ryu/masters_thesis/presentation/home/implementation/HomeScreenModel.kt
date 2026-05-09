@@ -7,13 +7,10 @@ import kotlinx.coroutines.launch
 import ryu.masters_thesis.presentation.home.domain.HomeEvent
 import ryu.masters_thesis.presentation.home.domain.HomeOneTimeEvent
 import ryu.masters_thesis.presentation.home.domain.HomeRepository
-import ryu.masters_thesis.feature.bluetoothNeighbourProtokol.domain.NeighbourProtocol
-
-import ryu.masters_thesis.feature.bluetoothFinderProtocol.domain.FinderProtocol
+import ryu.masters_thesis.presentation.home.domain.ReconnectResult
 
 class HomeScreenModel(
-    private val repository     : HomeRepository,
-    private val finderProtocol : FinderProtocol,
+    private val repository: HomeRepository,             // ← FinderProtocol pryč
 ) : ScreenModel {
 
     private val _state = MutableStateFlow(HomeState())
@@ -22,43 +19,38 @@ class HomeScreenModel(
     private val _oneTimeEvents = MutableSharedFlow<HomeOneTimeEvent>()
     val oneTimeEvents: SharedFlow<HomeOneTimeEvent> = _oneTimeEvents.asSharedFlow()
 
-    init {
-        loadRooms()
-    }
+    init { loadRooms() }
 
     fun onEvent(event: HomeEvent) {
         when (event) {
-            is HomeEvent.ConnectClicked      -> emitNavigation(event)
-            is HomeEvent.CreateClicked       -> emitNavigation(event)
-            is HomeEvent.SettingsClicked     -> emitNavigation(event)
-            is HomeEvent.DeleteRoomClicked   -> deleteRoom(event.roomId)
-            is HomeEvent.RoomClicked -> screenModelScope.launch {
-                _state.update { it.copy(isLoading = true) }
-
-                val knownPeers  = listOfNotNull(event.room.peerBluetoothAddress)
-                val hostAddress = finderProtocol.findHost(
-                    roomId     = event.room.roomName,
-                    knownPeers = knownPeers,
-                )
-
-                _state.update { it.copy(isLoading = false) }
-
-                if (hostAddress != null) {
-                    _oneTimeEvents.emit(
-                        HomeOneTimeEvent.NavigateToReconnect(
-                            roomName    = event.room.roomName,
-                            peerAddress = hostAddress,
-                        )
-                    )
-                } else {
-                    _oneTimeEvents.emit(HomeOneTimeEvent.NavigateToCreate(roomName = event.room.roomName))
-                }
-            }
+            is HomeEvent.ConnectClicked    -> emitNavigation(event)
+            is HomeEvent.CreateClicked     -> emitNavigation(event)
+            is HomeEvent.SettingsClicked   -> emitNavigation(event)
+            is HomeEvent.DeleteRoomClicked -> deleteRoom(event.roomId)
+            is HomeEvent.RoomClicked       -> reconnect(event)
         }
     }
 
-    fun refresh() {
-        loadRooms()
+    fun refresh() { loadRooms() }
+
+    private fun reconnect(event: HomeEvent.RoomClicked) {        // ← NEW, čistý
+        screenModelScope.launch {
+            _state.update { it.copy(isLoading = true) }
+            when (val result = repository.reconnectToRoom(event.room)) {
+                is ReconnectResult.HostFound  ->
+                    _oneTimeEvents.emit(
+                        HomeOneTimeEvent.NavigateToReconnect(
+                            roomName    = event.room.roomName,
+                            peerAddress = result.peerAddress,
+                        )
+                    )
+                is ReconnectResult.BecomeServer ->
+                    _oneTimeEvents.emit(
+                        HomeOneTimeEvent.NavigateToCreate(roomName = event.room.roomName)
+                    )
+            }
+            _state.update { it.copy(isLoading = false) }
+        }
     }
 
     private fun loadRooms() {
@@ -80,9 +72,7 @@ class HomeScreenModel(
     }
 
     private fun emitNavigation(event: HomeEvent) {
-        screenModelScope.launch {
-            _oneTimeEvents.emit(HomeOneTimeEvent.Navigate(event))
-        }
+        screenModelScope.launch { _oneTimeEvents.emit(HomeOneTimeEvent.Navigate(event)) }
     }
 
     private fun emitError(message: String) {

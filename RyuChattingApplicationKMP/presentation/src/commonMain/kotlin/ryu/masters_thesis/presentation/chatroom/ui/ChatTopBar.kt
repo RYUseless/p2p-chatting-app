@@ -17,12 +17,22 @@ import ryu.masters_thesis.presentation.chatroom.domain.ChatRoomEvent
 @Composable
 fun ChatTopBar(
     roomName: String,
+    isServer: Boolean,
     isConnected: Boolean,
     isVerified: Boolean,
+    isLeaving: Boolean,
     onEvent: (ChatRoomEvent) -> Unit,
 ) {
     val surfaceColor = MaterialTheme.colorScheme.surface
     val textColor    = MaterialTheme.colorScheme.onSurface
+
+    val statusText = when {
+        isLeaving && isServer    -> "\uD83D\uDDFF Odpojuji se..."
+        isServer && !isConnected -> "\uD83D\uDDFF Čeká se na připojení klienta..."
+        isServer && !isVerified  -> "⚠️ Ověřování spojení..."
+        !isServer && !isVerified -> "⚠️ Ověřování hesla..."
+        else                     -> null
+    }
 
     Column {
         Row(
@@ -56,7 +66,7 @@ fun ChatTopBar(
             }
         }
 
-        if (!isConnected || !isVerified) {
+        if (statusText != null) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -65,11 +75,7 @@ fun ChatTopBar(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = when {
-                        !isConnected -> "⏳ Čeká se na připojení klienta..."
-                        !isVerified  -> "⚠️ Spojení se ověřuje..."
-                        else         -> ""
-                    },
+                    text  = statusText,
                     style = MaterialTheme.typography.bodySmall,
                     color = textColor.copy(alpha = 0.6f)
                 )

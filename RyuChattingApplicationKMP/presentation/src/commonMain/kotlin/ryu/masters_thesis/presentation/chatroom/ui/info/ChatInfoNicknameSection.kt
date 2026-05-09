@@ -4,15 +4,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import ryu.masters_thesis.presentation.chatroom.domain.ChatRoomEvent
 
 @Composable
 fun ChatInfoNicknameSection(
-    nicknames: Map<String, String>,
-    onEvent: (ChatRoomEvent) -> Unit,
-    // textColor, buttonColors ← odebráno
+    nicknames:        Map<String, String>,
+    connectedUserIds: List<String>,
+    onEvent:          (ChatRoomEvent) -> Unit,
 ) {
     val textColor    = MaterialTheme.colorScheme.onSurface
     val buttonColors = ButtonDefaults.buttonColors(
@@ -28,18 +27,18 @@ fun ChatInfoNicknameSection(
         )
         Spacer(modifier = Modifier.height(8.dp))
 
-        if (nicknames.isEmpty()) {
+        if (connectedUserIds.isEmpty()) {
             Text(
                 text  = "No users connected",
                 style = MaterialTheme.typography.bodySmall,
-                color = textColor.copy(alpha = 0.5f)
+                color = textColor.copy(alpha = 0.5f),
             )
         } else {
-            nicknames.forEach { (userId, nickname) ->
-                var input by remember(userId) { mutableStateOf(nickname) }
+            connectedUserIds.forEach { userId ->
+                var input by remember(userId) { mutableStateOf(nicknames[userId] ?: "") }
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier              = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     OutlinedTextField(
                         value         = input,
@@ -51,7 +50,7 @@ fun ChatInfoNicknameSection(
                     Button(
                         onClick  = { onEvent(ChatRoomEvent.NicknameChanged(userId, input)) },
                         colors   = buttonColors,
-                        modifier = Modifier.padding(top = 8.dp)
+                        modifier = Modifier.padding(top = 8.dp),
                     ) { Text("Save") }
                 }
             }

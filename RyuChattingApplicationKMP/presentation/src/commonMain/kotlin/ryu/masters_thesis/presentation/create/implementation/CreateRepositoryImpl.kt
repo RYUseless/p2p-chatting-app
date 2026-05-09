@@ -2,6 +2,7 @@ package ryu.masters_thesis.presentation.create.implementation
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothController
 import ryu.masters_thesis.presentation.create.domain.CreateRepository
 import kotlin.uuid.ExperimentalUuidApi
@@ -10,23 +11,21 @@ class CreateRepositoryImpl(
     private val controller: BluetoothController,
 ) : CreateRepository {
 
-    // roomId generujeme lokálně před předáním controlleru
     private val _currentRoomId = MutableStateFlow<String?>(null)
 
-    override fun getCurrentRoomId(): Flow<String?> = controller.currentRoomId
+    // vrací lokální flow, ne controller.currentRoomId — ten může mít stale data z předchozí session
+    override fun getCurrentRoomId(): Flow<String?> = _currentRoomId.asStateFlow()
     override fun getPasswordError(): Flow<String?> = controller.passwordError
 
     override suspend fun initRoomId() {
-        // roomId generuje controller interně při submitServerPassword
-        // zde jen resetujeme lokální stav
         _currentRoomId.value = null
+        controller.cleanup()  // possibly navíc, ale jako pojistka good enough za mě
     }
 
     override suspend fun setRoomId(roomName: String) {
         _currentRoomId.value = roomName
     }
 
-    // kekel dostupný od 2.0 kotlinu, verze je 2.3.x, clearly furt experimental :)
     @OptIn(ExperimentalUuidApi::class)
     override suspend fun createRoom(password: String): String {
         val channelId = _currentRoomId.value
@@ -41,4 +40,5 @@ class CreateRepositoryImpl(
 
     override fun getIsConnected(): Flow<Boolean> = controller.isConnected
     override fun getIsVerified(): Flow<Boolean>  = controller.isVerified
+
 }

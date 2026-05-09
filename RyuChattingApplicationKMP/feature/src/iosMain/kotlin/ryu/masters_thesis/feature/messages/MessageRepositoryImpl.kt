@@ -25,13 +25,12 @@ class MessageRepositoryImpl : MessageRepository {
     }
 
     override suspend fun storeRoomMetadata(
-        roomId: String,
-        roomName: String,
-        password: String,
-        role: RoomRole,
-        timestamp: Long,
+        roomId:      String,
+        roomName:    String,
+        password:    String,
+        timestamp:   Long,
         peerAddress: String?,
-        isSaved: Boolean
+        isSaved:     Boolean,
     ): Result<Unit> {
         TODO("Not yet implemented")
     }
@@ -55,4 +54,13 @@ class MessageRepositoryImpl : MessageRepository {
     }
 
     override fun observeRoomsFlow(): Flow<List<RoomSummary>> = emptyFlow()
+
+    override fun observeIsSaved(roomId: String): Flow<Boolean> = emptyFlow()
+
+    override suspend fun updatePeerAddress(
+        roomId: String,
+        peerAddress: String,
+    ): Result<Unit> = Result.failure(NotImplementedError("Not implemented on iOS"))
+
+    override suspend fun getIsSaved(roomId: String): Boolean = false
 }

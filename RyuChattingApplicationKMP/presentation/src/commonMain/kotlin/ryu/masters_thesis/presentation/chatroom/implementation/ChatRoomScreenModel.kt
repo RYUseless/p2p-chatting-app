@@ -2,80 +2,101 @@ package ryu.masters_thesis.presentation.chatroom.implementation
 
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import kotlinx.coroutines.IO
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import ryu.masters_thesis.presentation.chatroom.domain.ChatRoomEvent
 import ryu.masters_thesis.presentation.chatroom.domain.ChatRoomOneTimeEvent
 import ryu.masters_thesis.presentation.chatroom.domain.ChatRoomRepository
+import ryu.masters_thesis.presentation.component.domain.AppSettingsSingleton
+import ryu.masters_thesis.feature.bluetooth.domain.HandoffData
+import ryu.masters_thesis.feature.bluetoothFinderProtocol.domain.FinderResponder
+import ryu.masters_thesis.feature.bluetoothNeighbourProtokol.domain.NeighbourProtocol
 
 class ChatRoomScreenModel(
-    private val roomName: String,
-    password: String,
-    private val repository: ChatRoomRepository,
+    private val roomName:          String,
+    password:                      String,
+    private val isServer:          Boolean,
+    private val repository:        ChatRoomRepository,
+    private val neighbourProtocol: NeighbourProtocol,
 ) : ScreenModel {
 
-    // Stav UI – StateFlow, ChatRoomContent collectuje přes collectAsState()
-    private val _state = MutableStateFlow(ChatRoomState(roomName = roomName, roomPassword = password,))
+    private val _state = MutableStateFlow(
+        ChatRoomState(
+            roomName     = roomName,
+            roomPassword = password,
+            isServer     = isServer,
+        )
+    )
     val state: StateFlow<ChatRoomState> = _state.asStateFlow()
 
-    // Jednorázové eventy – SharedFlow, UI poslouchá přes LaunchedEffect
-    private val _oneTimeEvents = MutableSharedFlow<ChatRoomOneTimeEvent>()
-    val oneTimeEvents: SharedFlow<ChatRoomOneTimeEvent> = _oneTimeEvents.asSharedFlow()
+    // 1. ZMĚNA: Používáme Channel místo SharedFlow – garantuje doručení eventu do UI
+    private val _oneTimeEvents = Channel<ChatRoomOneTimeEvent>(capacity = Channel.BUFFERED)
+    val oneTimeEvents: Flow<ChatRoomOneTimeEvent> = _oneTimeEvents.receiveAsFlow()
 
+    // Ochrana proti "spamování" tlačítka zpět
+    private var isLeaving = false
+
+    //init {
+    //    observeRepository()
+    //}
     init {
+        // Vynutíme, aby state neobsahoval žádné staré zprávy před začátkem pozorování
+        _state.update { it.copy(messages = emptyList(), isConnected = false, isVerified = false) }
         observeRepository()
     }
 
-    // Jediný vstupní bod pro UI akce
     fun onEvent(event: ChatRoomEvent) {
         when (event) {
             is ChatRoomEvent.MessageInputChanged -> _state.update { it.copy(messageInput = event.text) }
             is ChatRoomEvent.SendMessageClicked  -> sendMessage()
             is ChatRoomEvent.EmojiMenuToggled    -> _state.update { it.copy(showEmojiMenu = !it.showEmojiMenu) }
-            is ChatRoomEvent.EmojiSelected       -> {
-                _state.update { it.copy(
-                    messageInput = it.messageInput + event.emoji,
-                    showEmojiMenu = false,
-                )}
+            is ChatRoomEvent.EmojiSelected       -> _state.update { it.copy(
+                messageInput  = it.messageInput + event.emoji,
+                showEmojiMenu = false,
+            )}
+            is ChatRoomEvent.AttachFileClicked   -> screenModelScope.launch {
+                // Místo emit() používáme send()
+                _oneTimeEvents.send(ChatRoomOneTimeEvent.OpenFilePicker)
             }
-            is ChatRoomEvent.AttachFileClicked   -> {
-                screenModelScope.launch {
-                    // TODO DUMMY: file picker bude v :core
-                    _oneTimeEvents.emit(ChatRoomOneTimeEvent.OpenFilePicker)
-                }
-            }
-            is ChatRoomEvent.BackClicked         -> {
-                screenModelScope.launch {
-                    _oneTimeEvents.emit(ChatRoomOneTimeEvent.NavigateBack)
-                }
-            }
+            is ChatRoomEvent.BackClicked         -> leaveRoom()
             is ChatRoomEvent.InfoClicked         -> _state.update { it.copy(showInfoSheet = true) }
-            is ChatRoomEvent.SearchClicked       -> { /* TODO: search implementace */ }
+            is ChatRoomEvent.SearchClicked       -> { /* TODO */ }
             is ChatRoomEvent.InfoSheetDismissed  -> _state.update { it.copy(showInfoSheet = false) }
             is ChatRoomEvent.ShowQrClicked       -> _state.update { it.copy(showQrDialog = true) }
             is ChatRoomEvent.QrDialogDismissed   -> _state.update { it.copy(showQrDialog = false) }
-            is ChatRoomEvent.ChatColorChanged    -> _state.update { it.copy(chatColorHex = event.colorHex) }
-            is ChatRoomEvent.NicknameChanged     -> {
-                _state.update { it.copy(
-                    nicknames = it.nicknames + (event.userId to event.nickname)
-                )}
+            is ChatRoomEvent.ChatColorChanged    -> screenModelScope.launch {
+                _state.update { it.copy(chatColorHex = event.colorHex) }
+                repository.saveChatColor(event.colorHex)
             }
-            is ChatRoomEvent.WhitelistToggled    -> {
-                _state.update {
-                    val updated = if (event.userId in it.whitelist)
-                        it.whitelist - event.userId
-                    else
-                        it.whitelist + event.userId
-                    it.copy(whitelist = updated)
-                }
+            is ChatRoomEvent.NicknameChanged     -> {
+                _state.update { it.copy(nicknames = it.nicknames + (event.userId to event.nickname)) }
+            }
+            is ChatRoomEvent.BlacklistToggled    -> screenModelScope.launch {
+                val current = _state.value.blacklist.toMutableList()
+                if (event.userId in current) current.remove(event.userId) else current.add(event.userId)
+                _state.update { it.copy(blacklist = current) }
+                repository.saveBlacklist(current)
+            }
+            is ChatRoomEvent.MarkRoomSaved       -> screenModelScope.launch {
+                repository.markRoomAsSaved()
             }
         }
     }
 
-    override fun onDispose() {
-        repository.cleanup()
+    private fun leaveRoom() {
+        if (isLeaving) return
+        isLeaving = true
+        _state.update { it.copy(isLeaving = true) }
+        screenModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            neighbourProtocol.stopDiscovery()
+            repository.cleanup()
+            _oneTimeEvents.send(ChatRoomOneTimeEvent.NavigateBack)
+        }
     }
 
+    //redo
     private fun observeRepository() {
         screenModelScope.launch {
             repository.getMessages().collect { messages ->
@@ -88,8 +109,20 @@ class ChatRoomScreenModel(
             }
         }
         screenModelScope.launch {
+            var wasVerified = false
             repository.getIsVerified().collect { verified ->
                 _state.update { it.copy(isVerified = verified) }
+                when {
+                    verified && !wasVerified -> {
+                        neighbourProtocol.startDiscovery()
+                        val nickname = AppSettingsSingleton.settings.value.userNickname
+                        if (nickname.isNotBlank()) repository.sendNickname(nickname)
+                    }
+                    !verified && wasVerified -> {
+                        neighbourProtocol.stopDiscovery()
+                    }
+                }
+                wasVerified = verified
             }
         }
         screenModelScope.launch {
@@ -97,18 +130,54 @@ class ChatRoomScreenModel(
                 _state.update { it.copy(currentRoomId = roomId) }
             }
         }
-        //nova corutine
-        screenModelScope.launch {
-            repository.getServerHandoffRequired().collect { required ->
-                if (required) {
-                    val roomId   = _state.value.currentRoomId ?: roomName
-                    val password = _state.value.roomPassword
-                    repository.promoteToServer(roomId, password)
-                    _state.update { it.copy(isConnected = false, isVerified = false) }
+
+        if (!isServer) {
+            screenModelScope.launch {
+                repository.getHandoffEvent().collect { event ->
+                    when (event) {
+                        is HandoffData.PromoteToServer ->
+                            _oneTimeEvents.send(ChatRoomOneTimeEvent.ReloadAsServer(event.roomId))
+                        is HandoffData.SearchNewServer ->
+                            _oneTimeEvents.send(ChatRoomOneTimeEvent.NavigateBack)
+                    }
+                }
+            }
+            screenModelScope.launch {
+                repository.getServerHandoffRequired().collect { required ->
+                    if (required) {
+                        neighbourProtocol.stopDiscovery()
+                        repository.promoteToServer(roomName, _state.value.roomPassword)
+                        _oneTimeEvents.send(ChatRoomOneTimeEvent.ReloadAsServer(roomName))
+                    }
                 }
             }
         }
 
+        screenModelScope.launch {
+            repository.getChatColor().collect { hex ->
+                _state.update { it.copy(chatColorHex = hex) }
+            }
+        }
+        screenModelScope.launch {
+            repository.getBlacklist().collect { blacklist ->
+                _state.update { it.copy(blacklist = blacklist) }
+            }
+        }
+        screenModelScope.launch {
+            repository.getIsSaved().collect { isSaved ->
+                _state.update { it.copy(isSaved = isSaved) }
+            }
+        }
+        screenModelScope.launch {
+            repository.getNicknames().collect { nicknames ->
+                _state.update { it.copy(nicknames = nicknames) }
+            }
+        }
+        screenModelScope.launch {
+            repository.getConnectedUserIds().collect { ids ->
+                _state.update { it.copy(connectedUserIds = ids) }
+            }
+        }
     }
 
     private fun sendMessage() {
@@ -118,5 +187,10 @@ class ChatRoomScreenModel(
             repository.sendMessage(text)
             _state.update { it.copy(messageInput = "") }
         }
+    }
+
+    //nova fce
+    override fun onDispose() {
+        neighbourProtocol.stopDiscovery()
     }
 }

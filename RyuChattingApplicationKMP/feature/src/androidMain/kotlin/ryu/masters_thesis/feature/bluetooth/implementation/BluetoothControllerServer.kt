@@ -9,20 +9,36 @@ import android.util.Log
 import androidx.annotation.RequiresPermission
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelChildren
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ryu.masters_thesis.core.cryptographyUtils.domain.CryptoManager
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothConstants
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothDevice
 import ryu.masters_thesis.feature.bluetooth.domain.ConnectionState
+import ryu.masters_thesis.feature.lifecycle.domain.Terminable
+import ryu.masters_thesis.feature.lifecycle.implementation.AppTerminationRegistry
 
 class BluetoothControllerServer(
     context: Context,
     cryptoFactory: (channelId: String) -> CryptoManager,
-) : BluetoothControllerBase(context, cryptoFactory) {
+) : BluetoothControllerBase(context, cryptoFactory), Terminable {
+
+    init {
+        AppTerminationRegistry.register(this)
+    }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    override fun onTerminate() {
+        cleanup()
+        AppTerminationRegistry.unregister(this)
+    }
 
     private var serverManager: BluetoothServerManager? = null
 
+    //pokus
+    private val blacklistMap = mutableMapOf<String, Set<String>>()
     // ── sendMessage = broadcast ───────────────────────────────────────────────
 
     override fun sendMessage(channelId: String, text: String) {
@@ -95,6 +111,7 @@ class BluetoothControllerServer(
         scope.launch(Dispatchers.Main) {
             _isConnected.value     = true
             _connectionState.value = ConnectionState.CONNECTED
+            _connectedUserIds.value = serverManager?.connectedMacs?.toList() ?: emptyList()
         }
         // Unicast KEY_EXCHANGE tomuto klientovi
         try {
@@ -114,6 +131,7 @@ class BluetoothControllerServer(
     private fun onClientDisconnected(mac: String, channelId: String) {
         Log.i(BluetoothConstants.TAG_SERVER, "onClientDisconnected: $mac remaining=${serverManager?.sessionCount}")
         scope.launch(Dispatchers.Main) {
+            _connectedUserIds.value = serverManager?.connectedMacs?.toList() ?: emptyList()
             if (serverManager?.sessionCount == 0) {
                 _isConnected.value     = false
                 _connectionState.value = ConnectionState.IDLE
@@ -202,19 +220,93 @@ class BluetoothControllerServer(
     }
 
     // ── cleanup ───────────────────────────────────────────────────────────────
-
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun cleanup() {
-        Log.d(BluetoothConstants.TAG_SERVER, "cleanup")
         val channelId = _currentRoomId.value
-        if (channelId != null && _isConnected.value) {
-            serverManager?.broadcast(
-                buildPacket(BluetoothConstants.MSG_DISCONNECT, channelId, BluetoothConstants.DISCONNECT_SERVER_CLOSED)
+        val mgr       = serverManager
+
+        // 1. Okamžitý reset stavů, aby to frontend hned poznal
+        _isServer.value      = false
+        _currentRoomId.value = null
+        _isConnected.value   = false
+        _isVerified.value    = false
+        _sessionDevice.value = null
+        scope.coroutineContext.cancelChildren()
+
+        // 2. Odeslání paketu a BEZPEČNÉ uzavření soketu
+        if (channelId != null && mgr != null) {
+            val packet = buildPacket(
+                BluetoothConstants.MSG_DISCONNECT,
+                channelId,
+                BluetoothConstants.DISCONNECT_SERVER_CLOSED,
             )
+            Thread {
+                try {
+                    mgr.broadcast(packet)
+                    // Zásadní: Dáme Bluetooth bufferu 150ms na fyzické odeslání bajtů!
+                    Thread.sleep(150)
+                } catch (_: Exception) {}
+
+                // Až teď, když je zpráva prokazatelně odeslaná, zavřeme soket
+                try { mgr.closeAll() } catch (_: Exception) {}
+            }.also { it.isDaemon = true; it.start() }
+        } else {
+            mgr?.closeAll()
         }
-        serverManager?.closeAll()
+
         serverManager = null
-        scope.cancel()
+    }
+    // ── blacklist enforcement ─────────────────────────────────────────────────
+
+    override fun setBlacklist(roomId: String, blacklist: Set<String>) {
+        Log.d(BluetoothConstants.TAG_SERVER, "setBlacklist: roomId=$roomId size=${blacklist.size}")
+        blacklistMap[roomId] = blacklist
+    }
+
+    override fun onHandshakeClientReady(senderMac: String?, channelId: String): Boolean {
+        val blacklist = blacklistMap[channelId]
+        // Blacklist: MAC v listu → zablokovat
+        if (!blacklist.isNullOrEmpty() && senderMac in blacklist) {
+            Log.w(BluetoothConstants.TAG_SERVER, "HANDSHAKE blocked: $senderMac is blacklisted for $channelId")
+            val packet = buildPacket(
+                BluetoothConstants.MSG_DISCONNECT,
+                channelId,
+                BluetoothConstants.DISCONNECT_BLOCKED,
+            )
+            sendMessageTo(senderMac ?: return false, packet)
+            serverManager?.removeSession(senderMac)
+            return false
+        }
+        return true
+    }
+
+// ── ROOM_CONFIG broadcast ─────────────────────────────────────────────────
+
+    override fun sendRoomConfig(channelId: String, isSaved: Boolean) {
+        val payload = if (isSaved) "isSaved=1" else "isSaved=0"
+        val packet  = buildPacket(BluetoothConstants.MSG_ROOM_CONFIG, channelId, payload)
+        serverManager?.broadcast(packet)
+        Log.d(BluetoothConstants.TAG_SERVER, "ROOM_CONFIG broadcast: $payload")
+    }
+
+    // nickname
+    override fun sendNickname(channelId: String, nickname: String) {
+        if (nickname.isBlank()) return
+        val packet = buildPacket(BluetoothConstants.MSG_NICKNAME, channelId, nickname)
+        serverManager?.broadcast(packet)
+        Log.d(BluetoothConstants.TAG_SERVER, "sendNickname broadcast: nickname=$nickname")
+    }
+
+    //handoff
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    override suspend fun triggerHandoffAndShutdown(successorMac: String) {
+        val roomId = _currentRoomId.value ?: return
+        val packet = buildPacket(BluetoothConstants.MSG_HANDOFF, "SYSTEM", "$successorMac|$roomId")
+        serverManager?.broadcast(packet)
+
+        // Čekání na vyprázdnění bufferu před ukončením soketů
+        delay(500)
+        cleanup()
     }
 
     // ── stubs ─────────────────────────────────────────────────────────────────

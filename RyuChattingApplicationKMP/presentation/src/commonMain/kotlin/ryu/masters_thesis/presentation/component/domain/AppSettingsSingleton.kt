@@ -23,4 +23,8 @@ object AppSettingsSingleton {
     fun updateLanguage(language: AppLanguage) {
         _settings.value = _settings.value.copy(language = language)
     }
+
+    fun updateNickname(nickname: String) {
+        _settings.value = _settings.value.copy(userNickname = nickname)
+    }
 }

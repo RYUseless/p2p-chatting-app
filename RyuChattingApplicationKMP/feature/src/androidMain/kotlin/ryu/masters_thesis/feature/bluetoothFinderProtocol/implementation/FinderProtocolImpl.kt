@@ -7,6 +7,7 @@ import android.content.Context
 import android.util.Log
 import androidx.annotation.RequiresPermission
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import ryu.masters_thesis.feature.bluetoothFinderProtocol.domain.BFP_CONNECT_TIMEOUT
 import ryu.masters_thesis.feature.bluetoothFinderProtocol.domain.BFP_MSG_HOSTING
@@ -17,6 +18,10 @@ import ryu.masters_thesis.feature.bluetoothFinderProtocol.domain.FinderProtocol
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.UUID
+//new ones
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 
 class FinderProtocolImpl(
     private val context: Context,
@@ -25,40 +30,45 @@ class FinderProtocolImpl(
     private val adapter: BluetoothAdapter? =
         (context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
 
-    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    @RequiresPermission(allOf = [Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN])
     override suspend fun findHost(
         roomId:     String,
         knownPeers: List<String>,
     ): String? = withContext(Dispatchers.IO) {
-        // 1. Nejdřív se ptáme známých peerů z místnosti
-        for (address in knownPeers) {
-            val result = queryPeer(address, roomId)
-            if (result != null) return@withContext result
-        }
+        // Phase 1: known peers — parallel
+        queryParallel(knownPeers, roomId)?.let { return@withContext it }
 
-        // 2. Pak zkusíme všechna ostatní spárovaná zařízení
+        // Phase 2: remaining bonded — parallel
         val otherBonded = adapter?.bondedDevices
             ?.map { it.address }
             ?.filter { it !in knownPeers }
             ?: emptyList()
-
-        for (address in otherBonded) {
-            val result = queryPeer(address, roomId)
-            if (result != null) return@withContext result
-        }
-
-        // 3. Nikdo nehostuje → stáváme se serverem
-        null
+        queryParallel(otherBonded, roomId)
     }
 
-    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    @RequiresPermission(allOf = [Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN])
+    private suspend fun queryParallel(addresses: List<String>, roomId: String): String? {
+        if (addresses.isEmpty()) return null
+        return coroutineScope {
+            val found = CompletableDeferred<String?>()
+            val jobs  = addresses.map { address ->
+                launch(Dispatchers.IO) {
+                    val result = queryPeer(address, roomId)
+                    if (result != null) found.complete(result)
+                }
+            }
+            launch { jobs.joinAll(); found.complete(null) }
+            found.await().also { jobs.forEach { it.cancel() } }
+        }
+    }
+
+    @RequiresPermission(allOf = [Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN])
     private fun queryPeer(address: String, roomId: String): String? {
         return try {
             val device = adapter?.getRemoteDevice(address) ?: return null
             val socket = device.createRfcommSocketToServiceRecord(UUID.fromString(BFP_UUID))
             adapter?.cancelDiscovery()
 
-            // Connect s timeoutem přes Thread.join
             var connected = false
             val connectThread = Thread {
                 try { socket.connect(); connected = true } catch (_: Exception) {}
@@ -78,7 +88,6 @@ class FinderProtocolImpl(
             writer.write("$BFP_MSG_QUERY:$roomId\n")
             writer.flush()
 
-            // Read s timeoutem přes Thread.join
             var response: String? = null
             val readThread = Thread {
                 response = try { reader.readLine() } catch (_: Exception) { null }

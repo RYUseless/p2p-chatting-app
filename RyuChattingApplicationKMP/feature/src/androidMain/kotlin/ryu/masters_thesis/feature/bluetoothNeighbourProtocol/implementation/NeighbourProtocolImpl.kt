@@ -40,7 +40,9 @@ class NeighbourProtocolImpl(
     private val localDevice: LocalDevice,
 ) : NeighbourProtocol, Terminable {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default.limitedParallelism(1))
 
     private val selfAddress: String get() = localDevice.getBluetoothAddress() ?: ""
     private val selfName: String    get() = localDevice.getDeviceName() ?: ""
@@ -64,6 +66,7 @@ class NeighbourProtocolImpl(
     private var deadJob: Job?  = null
 
     override fun startDiscovery() {
+        if (_discoverySession.value.isScanning) return
         val self = selfAddress
         val name = selfName
         _discoverySession.update { it.copy(isScanning = true, scanStartedAtMs = now()) }
@@ -79,20 +82,21 @@ class NeighbourProtocolImpl(
 
         lsaJob = scope.launch {
             while (true) {
+                //delay(LSA_REFRESH_INTERVAL_MS)
+                delay(NEIGHBOUR_DEAD_MS)
                 floodLsa()
-                delay(LSA_INTERVAL_MS)
             }
         }
 
         deadJob = scope.launch {
             while (true) {
-                delay(HELLO_INTERVAL_MS)
+                //delay(DEAD_CHECK_INTERVAL_MS)
+                delay(LSA_INTERVAL_MS)
                 pruneDeadNeighbours()
             }
         }
-    }
 
-    init {
+        floodLsa()
         AppTerminationRegistry.register(this)
     }
 

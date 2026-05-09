@@ -8,7 +8,7 @@ import ryu.masters_thesis.feature.di.domain.featurePlatformModule
 import ryu.masters_thesis.presentation.di.presentationModule
 import org.koin.core.context.GlobalContext
 import ryu.masters_thesis.feature.bluetoothFinderProtocol.domain.FinderResponder
-
+import ryu.masters_thesis.data.di.domain.dataPlatformModule
 class MyApplication : Application() {
     override fun onCreate() {
         super.onCreate()
@@ -16,11 +16,11 @@ class MyApplication : Application() {
             androidContext(this@MyApplication)
             modules(
                 corePlatformModule(),
+                dataPlatformModule(),
                 featurePlatformModule(),
                 presentationModule(),
             )
         }
-        // Eager start BFP responder
-        GlobalContext.get().get<FinderResponder>()
+        // Eager start BFP responder → removed
     }
 }

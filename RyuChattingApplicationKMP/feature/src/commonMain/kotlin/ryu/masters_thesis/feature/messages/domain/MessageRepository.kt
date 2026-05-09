@@ -1,7 +1,6 @@
 package ryu.masters_thesis.feature.messages.domain
 
 import kotlinx.coroutines.flow.Flow
-import ryu.masters_thesis.data.vault.domain.RoomRole
 import ryu.masters_thesis.data.vault.domain.RoomSummary
 
 interface MessageRepository {
@@ -19,7 +18,6 @@ interface MessageRepository {
         roomId:      String,
         roomName:    String,
         password:    String,
-        role:        RoomRole,
         timestamp:   Long,
         peerAddress: String?  = null,
         isSaved:     Boolean  = false,
@@ -31,6 +29,11 @@ interface MessageRepository {
 
     suspend fun deleteRoom(roomId: String): Result<Unit>
 
-    //new, fixing issues w deleting i hope
     fun observeRoomsFlow(): Flow<List<RoomSummary>>
+
+    fun observeIsSaved(roomId: String): Flow<Boolean>
+
+    suspend fun updatePeerAddress(roomId: String, peerAddress: String): Result<Unit>
+
+    suspend fun getIsSaved(roomId: String): Boolean
 }

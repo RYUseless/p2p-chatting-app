@@ -15,7 +15,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import ryu.masters_thesis.presentation.chatroom.domain.ChatRoomEvent
 
-// TODO DUMMY: základní paleta, rozšířit nebo napojit na color picker až bude :core
 private val COLOR_PALETTE = listOf(
     "#9E9E9E", "#F44336", "#E91E63", "#9C27B0",
     "#3F51B5", "#2196F3", "#009688", "#4CAF50",
@@ -25,8 +24,7 @@ private val COLOR_PALETTE = listOf(
 @Composable
 fun ChatInfoColorSection(
     currentColorHex: String,
-    onEvent: (ChatRoomEvent) -> Unit,
-    // textColor ← odebráno
+    onEvent:         (ChatRoomEvent) -> Unit,
 ) {
     val textColor = MaterialTheme.colorScheme.onSurface
 
@@ -39,7 +37,7 @@ fun ChatInfoColorSection(
         Spacer(modifier = Modifier.height(8.dp))
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth()
+            modifier              = Modifier.fillMaxWidth(),
         ) {
             COLOR_PALETTE.forEach { hex ->
                 val color = remember(hex) {

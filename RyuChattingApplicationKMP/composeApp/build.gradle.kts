@@ -79,4 +79,6 @@ dependencies {
     implementation(project(":presentation"))
     implementation(project(":core"))
     implementation(project(":feature"))
+    implementation(project(":data"))
+
 }

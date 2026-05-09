@@ -28,4 +28,13 @@ interface RoomMetadataDao {
 
     @Query("DELETE FROM room_metadata")
     suspend fun clearAll()
+
+    @Query("SELECT isSaved FROM room_metadata WHERE hashedRoomId = :hashedRoomId")
+    fun observeIsSaved(hashedRoomId: String): Flow<Boolean>
+
+    @Query("UPDATE room_metadata SET peerBluetoothAddress = :peerAddress WHERE hashedRoomId = :hashedRoomId")
+    suspend fun updatePeerAddress(hashedRoomId: String, peerAddress: String)
+
+    @Query("SELECT isSaved FROM room_metadata WHERE hashedRoomId = :hashedRoomId")
+    suspend fun getIsSaved(hashedRoomId: String): Boolean?
 }

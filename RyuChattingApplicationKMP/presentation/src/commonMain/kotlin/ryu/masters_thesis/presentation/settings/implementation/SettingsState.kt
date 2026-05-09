@@ -9,8 +9,9 @@ state is now getting its values from :core.commonmain.configration
  */
 
 data class SettingsState(
-    val language: AppLanguage        = AppLanguage.ENGLISH,
-    val theme: AppTheme              = AppTheme.SYSTEM,
-    val availableLanguages: List<AppLanguage> = AppLanguage.entries,
-    val availableThemes: List<AppTheme>       = AppTheme.entries,
+    val language:           AppLanguage        = AppLanguage.ENGLISH,
+    val theme:              AppTheme           = AppTheme.SYSTEM,
+    val userNickname:       String             = "", //not needed from config
+    val availableLanguages: List<AppLanguage>  = AppLanguage.entries,
+    val availableThemes:    List<AppTheme>     = AppTheme.entries,
 )

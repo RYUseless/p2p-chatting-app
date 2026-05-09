@@ -33,6 +33,9 @@ class SettingsScreenModel(
             is SettingsEvent.ThemeChanged -> screenModelScope.launch {
                 repository.setTheme(event.theme)
             }
+            is SettingsEvent.NicknameChanged -> screenModelScope.launch {
+                repository.setNickname(event.nickname)
+            }
             is SettingsEvent.DismissClicked -> screenModelScope.launch {
                 _oneTimeEvents.emit(SettingsOneTimeEvent.Dismiss)
             }
@@ -48,6 +51,11 @@ class SettingsScreenModel(
         screenModelScope.launch {
             repository.getTheme().collect { theme ->
                 _state.update { it.copy(theme = theme) }
+            }
+        }
+        screenModelScope.launch {
+            repository.getNickname().collect { nickname ->
+                _state.update { it.copy(userNickname = nickname) }
             }
         }
     }

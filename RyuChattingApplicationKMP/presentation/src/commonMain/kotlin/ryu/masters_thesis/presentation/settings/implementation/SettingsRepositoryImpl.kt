@@ -15,11 +15,18 @@ class SettingsRepositoryImpl : SettingsRepository {
     override fun getTheme(): Flow<AppTheme> =
         AppSettingsSingleton.settings.map { it.theme }
 
+    override fun getNickname(): Flow<String> =
+        AppSettingsSingleton.settings.map { it.userNickname }
+
     override suspend fun setLanguage(language: AppLanguage) {
         AppSettingsSingleton.updateLanguage(language)
     }
 
     override suspend fun setTheme(theme: AppTheme) {
         AppSettingsSingleton.updateTheme(theme)
+    }
+
+    override suspend fun setNickname(nickname: String) {
+        AppSettingsSingleton.updateNickname(nickname)
     }
 }

@@ -49,6 +49,11 @@ kotlin {
                 implementation(libs.kotlin.stdlib)
                 implementation(libs.androidx.room.runtime)
                 implementation(libs.androidx.sqlite.bundled)
+                //di sranec, aka pro di .kt
+                implementation("androidx.datastore:datastore-preferences-core:1.1.1")
+                // commonMain.dependencies:
+                implementation("io.insert-koin:koin-core:4.0.0")
+                implementation("androidx.datastore:datastore-preferences-core:1.1.1")
             }
         }
 
@@ -61,6 +66,7 @@ kotlin {
         androidMain {
             dependencies {
                 implementation(libs.sqlcipher.android)
+                implementation("io.insert-koin:koin-android:4.0.0")
             }
         }
 

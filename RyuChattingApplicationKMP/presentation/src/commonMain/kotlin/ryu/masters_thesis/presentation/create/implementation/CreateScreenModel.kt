@@ -39,7 +39,7 @@ class CreateScreenModel(
             is CreateEvent.QrDialogDismissed -> _state.update { it.copy(showQrDialog = false) }
             is CreateEvent.DismissClicked -> {
                 repository.cleanup()
-                neighbourProtocol.stopDiscovery()
+                //neighbourProtocol.stopDiscovery()
                 screenModelScope.launch {
                     _oneTimeEvents.emit(CreateOneTimeEvent.Dismiss)
                 }
@@ -51,12 +51,13 @@ class CreateScreenModel(
         if (!_state.value.serverStarted) {
             repository.cleanup()
         }
-        neighbourProtocol.stopDiscovery()
+        //neighbourProtocol.stopDiscovery()
     }
+
     private fun observeRepository() {
         screenModelScope.launch {
             repository.getCurrentRoomId().collect { roomId ->
-                _state.update { it.copy(currentRoomId = roomId, roomName = roomId ?: it.roomName) }
+                _state.update { it.copy(currentRoomId = roomId) }
             }
         }
         screenModelScope.launch {
@@ -66,31 +67,27 @@ class CreateScreenModel(
         }
     }
 
+    //redo
     private fun createRoom() {
         val state = _state.value
         if (state.password.isEmpty()) return
         screenModelScope.launch {
-            neighbourProtocol.startDiscovery()
             repository.setRoomId(state.roomName)
-            val roomId = repository.createRoom(state.password)
+            val roomId = repository.createRoom(state.password) ?: return@launch
             _state.update { it.copy(serverStarted = true) }
-            if (roomId != null) {
-                messageRepo.storeRoomMetadata(
-                    roomId      = roomId,
-                    roomName    = state.roomName,
-                    password    = state.password,
-                    role        = RoomRole.SERVER,
-                    timestamp   = Clock.System.now().toEpochMilliseconds(),
-                    peerAddress = null,
-                    isSaved     = false,
-                )
-                // TODO: isSaved flag
-                _oneTimeEvents.emit(CreateOneTimeEvent.NavigateToChat(roomId, state.password))
-            }
+            _oneTimeEvents.emit(CreateOneTimeEvent.NavigateToChat(roomId, state.password))
         }
     }
 
     private fun initRoom() {
+        screenModelScope.launch {
+            repository.initRoomId()
+        }
+    }
+
+    //pokus
+    fun reset() {
+        _state.value = CreateState()
         screenModelScope.launch {
             repository.initRoomId()
         }

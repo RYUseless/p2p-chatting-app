@@ -27,8 +27,10 @@ fun ChatRoomContent(
         ) {
             ChatTopBar(
                 roomName    = state.roomName,
+                isServer    = state.isServer,
                 isConnected = state.isConnected,
                 isVerified  = state.isVerified,
+                isLeaving   = state.isLeaving,
                 onEvent     = onEvent,
             )
 

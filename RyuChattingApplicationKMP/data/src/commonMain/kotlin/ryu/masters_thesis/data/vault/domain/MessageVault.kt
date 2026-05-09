@@ -19,7 +19,6 @@ interface MessageVault {
         roomId:      String,
         roomName:    String,
         password:    String,
-        role:        RoomRole,
         timestamp:   Long,
         peerAddress: String?  = null,
         isSaved:     Boolean  = false,
@@ -34,4 +33,12 @@ interface MessageVault {
     suspend fun clearAll(): Result<Unit>
 
     fun observeRooms(): Flow<List<RoomSummary>>
+
+    //new
+    fun observeIsSaved(roomId: String): Flow<Boolean>
+
+    suspend fun updatePeerAddress(roomId: String, peerAddress: String): Result<Unit>
+
+    suspend fun getIsSaved(roomId: String): Boolean
+
 }

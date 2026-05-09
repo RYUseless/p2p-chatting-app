@@ -9,6 +9,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import org.koin.core.context.GlobalContext
+import ryu.masters_thesis.feature.bluetoothFinderProtocol.domain.FinderResponder
 //ryuoviny:
 //core
 //import ryu.masters_thesis.core.cryptographyUtils.implementation.AESCryptoManagerImpl
@@ -42,8 +44,9 @@ class MainActivity : ComponentActivity() {
     }
 
 
-    //zmena pri implementaci DI
+    //permision checky, + di
     private fun initApp() {
+        GlobalContext.get().get<FinderResponder>().start()  // ← NEW, po permissions
         setContent { AppNavigation() }
     }
 

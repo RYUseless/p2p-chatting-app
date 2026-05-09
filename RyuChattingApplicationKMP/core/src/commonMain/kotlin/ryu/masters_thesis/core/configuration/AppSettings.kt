@@ -12,8 +12,10 @@ data class AppSettings(
     val bluetoothDeviceName: String            = "P2P-Device",
     val connectionTimeout:   Int               = 30,
     val maxPeers:            Int               = 8,
+    val userNickname:        String            = "",
 )
 
+//check if needed anymore?
 @Composable
 fun AppSettings.isDarkTheme(): Boolean = when (theme) {
     AppTheme.SYSTEM -> isSystemInDarkTheme()

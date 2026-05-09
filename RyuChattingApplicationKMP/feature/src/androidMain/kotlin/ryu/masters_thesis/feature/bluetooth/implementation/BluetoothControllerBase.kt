@@ -13,6 +13,8 @@ import ryu.masters_thesis.feature.bluetooth.domain.BluetoothConstants
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothController
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothDevice
 import ryu.masters_thesis.feature.bluetooth.domain.ConnectionState
+import ryu.masters_thesis.feature.bluetooth.domain.HandoffData
+import ryu.masters_thesis.feature.bluetooth.domain.RoomConfigPacket
 import ryu.masters_thesis.feature.messages.domain.Message
 import kotlin.math.log
 
@@ -44,9 +46,35 @@ abstract class BluetoothControllerBase(
     protected val _canReconnect        = MutableStateFlow(false)
     protected val _sessionDevice       = MutableStateFlow<BluetoothDevice?>(null)
 
+    protected val _handoffEvent = MutableSharedFlow<HandoffData>()
+    override val handoffEvent = _handoffEvent.asSharedFlow()
+
     protected val _serverHandoffRequired = MutableStateFlow(false)
     override val serverHandoffRequired: StateFlow<Boolean> = _serverHandoffRequired.asStateFlow()
     override fun clearServerHandoff() { _serverHandoffRequired.value = false }
+
+    protected val _connectedUserIds   = MutableStateFlow<List<String>>(emptyList())
+    override  val connectedUserIds:   StateFlow<List<String>>      = _connectedUserIds.asStateFlow()
+
+    //protected val _incomingRoomConfig = MutableSharedFlow<RoomConfigPacket>()
+
+    // V BluetoothControllerBase.kt změň tyto řádky:
+
+    protected val _incomingRoomConfig = MutableSharedFlow<RoomConfigPacket>(
+        replay = 1,
+        onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST
+    )
+    override  val incomingRoomConfig: SharedFlow<RoomConfigPacket> = _incomingRoomConfig.asSharedFlow()
+
+
+    protected val _incomingNicknames = MutableSharedFlow<Pair<String, String>>(
+        replay = 1,
+        onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST
+    )
+
+
+    //protected val _incomingNicknames = MutableSharedFlow<Pair<String, String>>()
+    override  val incomingNicknames: SharedFlow<Pair<String, String>> = _incomingNicknames.asSharedFlow()
 
     override val scannedDevices:      StateFlow<List<BluetoothDevice>>     = _scannedDevices.asStateFlow()
     override val isConnected:         StateFlow<Boolean>                    = _isConnected.asStateFlow()
@@ -62,6 +90,12 @@ abstract class BluetoothControllerBase(
     override val connectionState:     StateFlow<ConnectionState>            = _connectionState.asStateFlow()
     override val canReconnect:        StateFlow<Boolean>                    = _canReconnect.asStateFlow()
     override val sessionDevice:       StateFlow<BluetoothDevice?>           = _sessionDevice.asStateFlow()
+
+    override fun sendRoomConfig(channelId: String, isSaved: Boolean) = Unit
+    override fun setBlacklist(roomId: String, whitelist: Set<String>) = Unit
+
+    //new, pokus:
+    protected open fun onHandshakeClientReady(senderMac: String?, channelId: String): Boolean = true
 
     protected abstract fun sendMessageTo(mac: String, packet: String)
 
@@ -136,11 +170,21 @@ abstract class BluetoothControllerBase(
                     _needsPassword.value = true
                 }
             }
+            BluetoothConstants.MSG_NICKNAME -> {
+                // Na straně klienta je senderMac null — fallback na connectedDeviceName (adresa serveru)
+                val mac = senderMac?.takeIf { it.isNotBlank() }
+                    ?: _connectedDeviceName.value?.takeIf { it.isNotBlank() }
+                    ?: return
+                Log.d(BluetoothConstants.TAG_BASE, "MSG_NICKNAME: from=$mac nickname=$payload")
+                scope.launch { _incomingNicknames.emit(Pair(mac, payload)) }
+            }
             BluetoothConstants.MSG_HANDSHAKE -> {
                 Log.d(BluetoothConstants.TAG_BASE, "HANDSHAKE payload=$payload isServer=${_isServer.value}")
                 scope.launch(Dispatchers.Main) {
                     when (payload) {
                         BluetoothConstants.HANDSHAKE_CLIENT_READY if _isServer.value -> {
+                            // Whitelist check — Server override vrátí false pokud userId není povolen
+                            if (!onHandshakeClientReady(senderMac, channelId)) return@launch
                             Log.d(BluetoothConstants.TAG_BASE, "HANDSHAKE: sending CONFIRMED to $senderMac")
                             val packet = buildPacket(BluetoothConstants.MSG_HANDSHAKE, channelId, BluetoothConstants.HANDSHAKE_CONFIRMED)
                             if (senderMac != null) sendMessageTo(senderMac, packet) else sendMessage(channelId, packet)
@@ -175,7 +219,19 @@ abstract class BluetoothControllerBase(
                 Log.i(BluetoothConstants.TAG_BASE, "DISCONNECT: channelId=$channelId reason=$payload sender=$senderMac")
                 scope.launch(Dispatchers.Main) { onDisconnectPacket(senderMac, payload) }
             }
+            BluetoothConstants.MSG_ROOM_CONFIG -> {
+                // Klient přijme ROOM_CONFIG od serveru → emituje do incomingRoomConfig flow
+                val isSaved = payload == "isSaved=1"
+                Log.d(BluetoothConstants.TAG_BASE, "ROOM_CONFIG: channelId=$channelId isSaved=$isSaved")
+                scope.launch { _incomingRoomConfig.emit(RoomConfigPacket(isSaved = isSaved)) }
+            }
+            BluetoothConstants.MSG_ROOM_MEMBERS -> {
+                val ids = payload.split(",").filter { it.isNotBlank() }
+                _connectedUserIds.value = ids
+            }
+
             else -> Log.w(BluetoothConstants.TAG_BASE, "unknown type=$type")
+
         }
     }
 
@@ -265,10 +321,12 @@ abstract class BluetoothControllerBase(
     protected fun resetState() {
         Log.d(BluetoothConstants.TAG_BASE, "resetState (full)")
         resetConnectionState()
-        _currentRoomId.value   = null
-        _sessionDevice.value   = null
-        _canReconnect.value    = false
-        _connectionState.value = ConnectionState.IDLE
+        _isServer.value = false //test
+        _currentRoomId.value         = null
+        _sessionDevice.value         = null
+        _canReconnect.value          = false
+        _connectionState.value       = ConnectionState.IDLE
+        _serverHandoffRequired.value = false    // ← add
     }
 
     //redo once again ffs
@@ -294,4 +352,13 @@ abstract class BluetoothControllerBase(
 
     override fun verifyConnection(): Boolean =
         connectionManager?.verifyConnection() == true
+
+    override fun sendNickname(channelId: String, nickname: String) {
+        if (nickname.isBlank()) return
+        val packet = buildPacket(BluetoothConstants.MSG_NICKNAME, channelId, nickname)
+        scope.launch(Dispatchers.IO) {
+            connectionManager?.sendMessage(packet)
+            Log.d(BluetoothConstants.TAG_BASE, "sendNickname: channelId=$channelId nickname=$nickname")
+        }
+    }
 }

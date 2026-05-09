@@ -33,7 +33,14 @@ data class ReconnectScreen(val roomName: String, val peerAddress: String) : Scre
             )
             screenModel.oneTimeEvents.collect { event ->
                 when (event) {
-                    is ConnectOneTimeEvent.NavigateToChat -> navigator.replace(ChatRoomScreen(event.roomId, event.password))
+                    //is ConnectOneTimeEvent.NavigateToChat -> navigator.replace(ChatRoomScreen(event.roomId, event.password))
+                    is ConnectOneTimeEvent.NavigateToChat -> navigator.replace(
+                        ChatRoomScreen(
+                            roomName = event.roomId,
+                            password = event.password,
+                            forceIsServer = false
+                        )
+                    )
                     is ConnectOneTimeEvent.Dismiss        -> navigator.pop()
                     is ConnectOneTimeEvent.ShowError      -> navigator.pop()
                     is ConnectOneTimeEvent.Disconnected   -> navigator.pop()

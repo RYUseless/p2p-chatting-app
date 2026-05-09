@@ -6,4 +6,5 @@ import ryu.masters_thesis.data.vault.domain.RoomSummary
 interface HomeRepository {
     fun observeRooms(): Flow<List<RoomSummary>>
     suspend fun deleteRoom(roomId: String): Result<Unit>
+    suspend fun reconnectToRoom(room: RoomSummary): ReconnectResult  // ← NEW
 }

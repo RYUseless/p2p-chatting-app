@@ -11,7 +11,7 @@ import ryu.masters_thesis.presentation.connect.domain.ConnectRepository
 import ryu.masters_thesis.presentation.connect.domain.ScannedDeviceUiModel
 
 class ConnectRepositoryImpl(
-    private val controller: BluetoothController,
+    private val controller       : BluetoothController,   // client
 ) : ConnectRepository {
     private val _password = MutableStateFlow<String?>(null)
 
@@ -37,7 +37,9 @@ class ConnectRepositoryImpl(
             }
         }
 
-    override suspend fun startClientMode() = controller.startClientMode()
+    override suspend fun startClientMode() {
+        controller.startClientMode()
+    }
 
     override suspend fun connectToDevice(device: ScannedDeviceUiModel) {
         controller.connectToDevice(

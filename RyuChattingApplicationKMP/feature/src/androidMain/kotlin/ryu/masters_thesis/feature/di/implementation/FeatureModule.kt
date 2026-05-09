@@ -8,9 +8,7 @@ import org.koin.core.parameter.parametersOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import ryu.masters_thesis.core.cryptographyUtils.domain.CryptoManager
-import ryu.masters_thesis.data.vault.domain.MessageVault
-import ryu.masters_thesis.data.vault.implementation.MessageVaultImpl
-import ryu.masters_thesis.data.vault.implementation.VaultCipher
+import ryu.masters_thesis.data.vault.domain.RoomConfigVault
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothController
 import ryu.masters_thesis.feature.bluetooth.implementation.BluetoothControllerClient
 import ryu.masters_thesis.feature.bluetooth.implementation.BluetoothControllerServer
@@ -23,8 +21,10 @@ import ryu.masters_thesis.feature.bluetoothNeighbourTransport.implementation.Nei
 import ryu.masters_thesis.feature.bluetoothTransportProtocol.domain.NeighbourTransport
 import ryu.masters_thesis.feature.messages.domain.ChatManager
 import ryu.masters_thesis.feature.messages.domain.MessageRepository
+import ryu.masters_thesis.feature.messages.domain.RoomConfigRepository
 import ryu.masters_thesis.feature.messages.implementation.ChatManagerImpl
 import ryu.masters_thesis.feature.messages.implementation.MessageRepositoryImpl
+import ryu.masters_thesis.feature.messages.implementation.RoomConfigRepositoryImpl
 import ryu.masters_thesis.feature.bluetoothFinderProtocol.domain.FinderProtocol
 import ryu.masters_thesis.feature.bluetoothFinderProtocol.domain.FinderResponder
 import ryu.masters_thesis.feature.bluetoothFinderProtocol.implementation.FinderProtocolImpl
@@ -39,10 +39,11 @@ actual fun featurePlatformModule() = module {
     }
     single<ChatManager> { ChatManagerImpl() }
 
-    // --- Vault ---
-    single { VaultCipher() }
-    single<MessageVault> { MessageVaultImpl(get<Context>(), get()) }
+    // --- MessageRepository ---
     single<MessageRepository> { MessageRepositoryImpl(get()) }
+
+    // --- RoomConfigRepository ---
+    single<RoomConfigRepository> { RoomConfigRepositoryImpl(get<RoomConfigVault>()) }
 
     // --- BNP ---
     single<LocalDevice> {
@@ -64,7 +65,7 @@ actual fun featurePlatformModule() = module {
                 if (serverController.isServer.value) serverController.currentRoomId.value
                 else null
             },
-        ).also { it.start() }
+        )
     }
 
     factory<NeighbourTransport> { (controller: BluetoothController) ->

@@ -20,9 +20,8 @@ data class CreateScreen(val roomName: String? = null) : Screen {
         val state by screenModel.state.collectAsState()
 
         LaunchedEffect(Unit) {
-            roomName?.let {
-                screenModel.onEvent(CreateEvent.RoomNameChanged(it))
-            }
+            screenModel.reset()
+            roomName?.let { screenModel.onEvent(CreateEvent.RoomNameChanged(it)) }
             screenModel.oneTimeEvents.collect { event ->
                 when (event) {
                     is CreateOneTimeEvent.NavigateToChat -> navigator.push(ChatRoomScreen(event.roomId, event.password))
