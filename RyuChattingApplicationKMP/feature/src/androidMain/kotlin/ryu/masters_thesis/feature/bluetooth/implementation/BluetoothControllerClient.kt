@@ -11,6 +11,7 @@ import android.util.Log
 import androidx.annotation.RequiresPermission
 import kotlinx.coroutines.*
 import ryu.masters_thesis.core.cryptographyUtils.domain.CryptoManager
+import ryu.masters_thesis.core.cryptographyUtils.domain.SchnorrProtocol
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothConstants
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothDevice
 import ryu.masters_thesis.feature.bluetooth.domain.ConnectionState
@@ -21,7 +22,8 @@ import ryu.masters_thesis.feature.lifecycle.implementation.AppTerminationRegistr
 class BluetoothControllerClient(
     context: Context,
     cryptoFactory: (channelId: String) -> CryptoManager,
-) : BluetoothControllerBase(context, cryptoFactory), Terminable {
+    schnorr: SchnorrProtocol,
+) : BluetoothControllerBase(context, cryptoFactory, schnorr), Terminable {
 
     init {
         AppTerminationRegistry.register(this)
@@ -181,32 +183,27 @@ class BluetoothControllerClient(
 
     override fun submitClientPassword(channelId: String, password: String) {
         Log.d(BluetoothConstants.TAG_CLIENT, "submitClientPassword: channelId=$channelId")
-        if (password.isBlank()) {
-            Log.w(BluetoothConstants.TAG_CLIENT, "blank password rejected")
-            _passwordError.value = "Password cannot be empty"
-            return
-        }
+        if (password.isBlank()) { _passwordError.value = "Password cannot be empty"; return }
         val keyData = pendingKeyData[channelId] ?: run {
             Log.e(BluetoothConstants.TAG_CLIENT, "No pending key data for: $channelId")
             return
         }
         scope.launch(Dispatchers.IO) {
             try {
-                val crypto = cryptoFactory(channelId)
-                val ok     = crypto.initializeAsClient(keyData, password.trim())
-                Log.d(BluetoothConstants.TAG_CLIENT, "initializeAsClient result=$ok")
+                val crypto  = cryptoFactory(channelId)
+                val ok      = crypto.initializeAsClient(keyData, password.trim())
+                val witness = crypto.witness
+                val proof   = if (ok && witness != null) schnorr.computeProof(witness, channelId) else null
                 withContext(Dispatchers.Main) {
-                    if (ok) {
+                    if (ok && proof != null) {
                         cryptoManagers[channelId] = crypto
                         pendingKeyData.remove(channelId)
                         _needsPassword.value = false
                         _passwordError.value = null
-                        connectionManager?.sendMessage(
-                            buildPacket(BluetoothConstants.MSG_HANDSHAKE, channelId, BluetoothConstants.HANDSHAKE_CLIENT_READY)
-                        )
-                        Log.d(BluetoothConstants.TAG_CLIENT, "HANDSHAKE_CLIENT_READY sent")
+                        val payload = "${BluetoothConstants.HANDSHAKE_CLIENT_READY}${BluetoothConstants.ZK_SEPARATOR}${proof.rBase64}${BluetoothConstants.ZK_SEPARATOR}${proof.sBase64}"
+                        connectionManager?.sendMessage(buildPacket(BluetoothConstants.MSG_HANDSHAKE, channelId, payload))
+                        Log.d(BluetoothConstants.TAG_CLIENT, "HANDSHAKE_CLIENT_READY + ZK proof sent")
                     } else {
-                        Log.w(BluetoothConstants.TAG_CLIENT, "Password verification failed")
                         _passwordError.value = "Incorrect password"
                     }
                 }

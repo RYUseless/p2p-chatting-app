@@ -31,4 +31,6 @@ object BluetoothConstants {
 
     const val MSG_HANDOFF = "MSG_HANDOFF"
 
+    const val ZK_SEPARATOR = "|"  // Base64 neobsahuje '|', bezpečný oddělovač
+
 }

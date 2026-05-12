@@ -13,41 +13,53 @@ class AESCryptoManagerImpl(
     private val keyManager: KeyManager,
 ) : CryptoManager {
 
-    private var secretKey: ByteArray?      = null
-    private var iv:        ByteArray?      = null
-    private var isUnlocked: Boolean        = false
+    private var secretKey:  ByteArray? = null
+    private var iv:         ByteArray? = null
+    private var isUnlocked: Boolean    = false
+
+    // Server si uloží verifier pro pozdější ověření Schnorr proofu
+    override var verifier: String?    = null
+        private set
+
+    // Klient si uloží witness – Controller z něj spočítá Schnorr proof
+    override var witness:  ByteArray? = null
+        private set
 
     override fun initializeAsServer(password: String): String {
         Log.d(TAG, "initializeAsServer: room=$roomId")
-        secretKey     = keyManager.generateSecretKey()
-        iv            = keyManager.generateIV()
-        val salt      = keyManager.generateSalt()
+        val saltAuth = keyManager.generateSalt()
+        val saltAes  = keyManager.generateSalt()
+        iv           = keyManager.generateIV()
 
-        keyManager.saveSalt(roomId, salt)
+        secretKey = keyManager.deriveAesKey(password, saltAes)
+        verifier  = keyManager.computeVerifier(password, saltAuth)
+
+        keyManager.saveSalt(roomId, saltAuth)
         keyManager.saveRoomAesKey(roomId, secretKey!!, iv!!)
-
-        val encryptedKeyData = keyManager.encryptAesKeyWithPassword(secretKey!!, password, salt)
         isUnlocked = true
 
-        val saltB64 = Base64.encodeToString(salt, Base64.NO_WRAP)
-        val ivB64   = Base64.encodeToString(iv!!,  Base64.NO_WRAP)
-        Log.d(TAG, "initializeAsServer: sending $saltB64:$ivB64:${encryptedKeyData.take(20)}...")
-        return "$saltB64:$ivB64:$encryptedKeyData"
+        val saltAuthB64 = Base64.encodeToString(saltAuth, Base64.NO_WRAP)
+        val saltAesB64  = Base64.encodeToString(saltAes,  Base64.NO_WRAP)
+        val ivB64       = Base64.encodeToString(iv!!,     Base64.NO_WRAP)
+        Log.d(TAG, "initializeAsServer: payload=$saltAuthB64:$saltAesB64:$ivB64")
+        return "$saltAuthB64:$saltAesB64:$ivB64"
     }
 
     override fun initializeAsClient(keyExchangeData: String, password: String): Boolean {
         Log.d(TAG, "initializeAsClient: raw='$keyExchangeData'")
         return try {
             val parts = keyExchangeData.split(":", limit = 3)
-            require(parts.size == 3) { "Invalid format, expected 3 parts got ${parts.size}" }
+            require(parts.size == 3) { "Expected 3 parts, got ${parts.size}" }
 
-            val salt             = Base64.decode(parts[0], Base64.NO_WRAP)
-            val ivBytes          = Base64.decode(parts[1], Base64.NO_WRAP)
-            val encryptedKeyData = parts[2]
+            val saltAuth = Base64.decode(parts[0], Base64.NO_WRAP)
+            val saltAes  = Base64.decode(parts[1], Base64.NO_WRAP)
+            val ivBytes  = Base64.decode(parts[2], Base64.NO_WRAP)
 
-            iv = ivBytes
-            keyManager.saveSalt(roomId, salt)
-            secretKey = keyManager.decryptAesKeyWithPassword(encryptedKeyData, password, salt)
+            iv        = ivBytes
+            secretKey = keyManager.deriveAesKey(password, saltAes)
+            witness   = keyManager.deriveAesKey(password, saltAuth) // stejný KDF, jiný salt
+
+            keyManager.saveSalt(roomId, saltAuth)
             keyManager.saveRoomAesKey(roomId, secretKey!!, iv!!)
             isUnlocked = true
 

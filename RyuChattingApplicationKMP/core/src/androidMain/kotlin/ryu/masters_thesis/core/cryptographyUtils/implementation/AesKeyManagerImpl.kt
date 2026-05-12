@@ -1,22 +1,20 @@
 package ryu.masters_thesis.core.cryptographyUtils.implementation
 
 import android.content.Context
-import android.security.keystore.KeyGenParameterSpec
-import android.security.keystore.KeyProperties
 import android.util.Base64
 import android.util.Log
 import ryu.masters_thesis.core.cryptographyUtils.domain.KeyManager
-import java.security.KeyStore
+import ryu.masters_thesis.core.cryptographyUtils.domain.SchnorrProtocol
+import java.security.MessageDigest
 import java.security.SecureRandom
-import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
-import javax.crypto.SecretKey
 import javax.crypto.SecretKeyFactory
-import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.PBEKeySpec
-import javax.crypto.spec.SecretKeySpec
 
-class AesKeyManagerImpl(private val context: Context) : KeyManager {
+class AesKeyManagerImpl(
+    private val context: Context,
+    private val schnorr: SchnorrProtocol
+) : KeyManager {
 
     private val prefs by lazy {
         context.getSharedPreferences(SHARED_PREFS_NAME, Context.MODE_PRIVATE)
@@ -53,7 +51,7 @@ class AesKeyManagerImpl(private val context: Context) : KeyManager {
         val ivString  = prefs.getString("${ROOM_IV_PREF}_$roomId",      null) ?: return null
         return Pair(
             Base64.decode(keyString, Base64.NO_WRAP),
-            Base64.decode(ivString,  Base64.NO_WRAP),
+            Base64.decode(ivString,  Base64.NO_WRAP)
         )
     }
 
@@ -68,35 +66,23 @@ class AesKeyManagerImpl(private val context: Context) : KeyManager {
         return Base64.decode(saltString, Base64.NO_WRAP)
     }
 
-    override fun encryptAesKeyWithPassword(aesKey: ByteArray, password: String, salt: ByteArray): String {
-        Log.d(TAG, "encryptAesKeyWithPassword: key=${aesKey.size}B pwd=${password.length}ch")
-        val derivedKey = deriveKeyFromPassword(password.trim(), salt)
-        val iv         = generateIV()
-        val cipher     = Cipher.getInstance(CryptoConstants.AES_CIPHER)
-        cipher.init(Cipher.ENCRYPT_MODE, derivedKey, IvParameterSpec(iv))
-        val encryptedKeyBytes = cipher.doFinal(aesKey)
-        val combined = iv + encryptedKeyBytes
-        return Base64.encodeToString(combined, Base64.NO_WRAP)
+    override fun computeVerifier(password: String, salt: ByteArray): String {
+        Log.d(TAG, "computeVerifier")
+        val witness = deriveWitness(password.trim(), salt)
+        return schnorr.computeVerifier(witness)
     }
 
-    override fun decryptAesKeyWithPassword(encryptedKeyData: String, password: String, salt: ByteArray): ByteArray {
-        Log.d(TAG, "decryptAesKeyWithPassword: data=${encryptedKeyData.length}ch pwd=${password.length}ch")
-        val combined = Base64.decode(encryptedKeyData, Base64.NO_WRAP)
-        require(combined.size >= CryptoConstants.IV_SIZE) {
-            "Invalid encrypted data: ${combined.size}B"
-        }
-        val iv           = combined.copyOfRange(0, CryptoConstants.IV_SIZE)
-        val encryptedKey = combined.copyOfRange(CryptoConstants.IV_SIZE, combined.size)
-        val derivedKey   = deriveKeyFromPassword(password.trim(), salt)
-        val cipher       = Cipher.getInstance(CryptoConstants.AES_CIPHER)
-        cipher.init(Cipher.DECRYPT_MODE, derivedKey, IvParameterSpec(iv))
-        return cipher.doFinal(encryptedKey)
+    override fun deriveAesKey(password: String, salt: ByteArray): ByteArray {
+        Log.d(TAG, "deriveAesKey")
+        return deriveWitness(password.trim(), salt)
     }
 
-    private fun deriveKeyFromPassword(password: String, salt: ByteArray): SecretKey {
+    // ── private ───────────────────────────────────────────────────────────────
+    /** PBKDF2(password, salt) → 32 raw bytes (witness i AES klíč sdílí stejný KDF) */
+    private fun deriveWitness(password: String, salt: ByteArray): ByteArray {
         val spec    = PBEKeySpec(password.toCharArray(), salt, CryptoConstants.PBKDF2_ITERATIONS, CryptoConstants.AES_KEY_SIZE)
         val factory = SecretKeyFactory.getInstance(CryptoConstants.PBKDF2_ALGORITHM)
-        return SecretKeySpec(factory.generateSecret(spec).encoded, CryptoConstants.AES_ALGORITHM)
+        return factory.generateSecret(spec).encoded
     }
 
     companion object {

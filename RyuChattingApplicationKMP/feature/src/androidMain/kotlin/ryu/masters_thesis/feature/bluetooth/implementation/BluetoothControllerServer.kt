@@ -14,6 +14,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ryu.masters_thesis.core.cryptographyUtils.domain.CryptoManager
+import ryu.masters_thesis.core.cryptographyUtils.domain.SchnorrProtocol
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothConstants
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothDevice
 import ryu.masters_thesis.feature.bluetooth.domain.ConnectionState
@@ -23,7 +24,8 @@ import ryu.masters_thesis.feature.lifecycle.implementation.AppTerminationRegistr
 class BluetoothControllerServer(
     context: Context,
     cryptoFactory: (channelId: String) -> CryptoManager,
-) : BluetoothControllerBase(context, cryptoFactory), Terminable {
+    schnorr: SchnorrProtocol,
+) : BluetoothControllerBase(context, cryptoFactory, schnorr), Terminable {
 
     init {
         AppTerminationRegistry.register(this)
@@ -68,41 +70,35 @@ class BluetoothControllerServer(
     @RequiresPermission(allOf = [Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_ADVERTISE])
     override fun submitServerPassword(channelId: String, password: String) {
         Log.d(BluetoothConstants.TAG_SERVER, "submitServerPassword: channelId=$channelId")
-        if (password.isBlank()) {
-            _passwordError.value = "Password cannot be empty"
-            return
-        }
+        if (password.isBlank()) { _passwordError.value = "Password cannot be empty"; return }
 
-        // Zavřít předchozí server pokud existuje
         val old = serverManager
         serverManager = null
         old?.closeAll()
-
         resetState()
         _currentRoomId.value = channelId
         _isServer.value      = true
 
-        val crypto          = cryptoFactory(channelId)
-        val keyExchangeData = crypto.initializeAsServer(password.trim())
-        cryptoManagers[channelId] = crypto
-
-        serverManager = BluetoothServerManager(
-            adapter              = adapter,
-            onClientConnected    = { session -> onClientConnected(session, channelId, keyExchangeData) },
-            onClientDisconnected = { mac     -> onClientDisconnected(mac, channelId) },
-            onError              = { err     ->
-                scope.launch(Dispatchers.Main) {
-                    _connectionError.value = err
-                    _connectionState.value = ConnectionState.FAILED
-                }
-            },
-        )
-
-        setBluetoothName("${BluetoothConstants.APP_IDENTIFIER}_${channelId}")
-        serverManager!!.startAcceptLoop()
-        makeDiscoverable()
+        scope.launch(Dispatchers.IO) {
+            val crypto          = cryptoFactory(channelId)
+            val keyExchangeData = crypto.initializeAsServer(password.trim())
+            cryptoManagers[channelId] = crypto
+            withContext(Dispatchers.Main) {
+                serverManager = BluetoothServerManager(
+                    adapter              = adapter,
+                    onClientConnected    = { session -> onClientConnected(session, channelId, keyExchangeData) },
+                    onClientDisconnected = { mac     -> onClientDisconnected(mac, channelId) },
+                    onError              = { err     -> scope.launch(Dispatchers.Main) {
+                        _connectionError.value = err
+                        _connectionState.value = ConnectionState.FAILED
+                    }},
+                )
+                setBluetoothName("${BluetoothConstants.APP_IDENTIFIER}_${channelId}")
+                serverManager!!.startAcceptLoop()
+                makeDiscoverable()
+            }
+        }
     }
-
     // ── per-client callbacks ──────────────────────────────────────────────────
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)

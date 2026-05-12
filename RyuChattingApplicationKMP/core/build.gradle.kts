@@ -68,6 +68,8 @@ kotlin {
                 //security
                 implementation("androidx.security:security-crypto:1.1.0-alpha06")
                 implementation(libs.koin.core)
+                //pro schnorra
+                implementation("com.ionspin.kotlin:bignum:0.3.10")
             }
         }
 
@@ -87,6 +89,8 @@ kotlin {
                 implementation("androidx.camera:camera-view:1.4.2")
                 //di shit
                 implementation(libs.koin.android)
+                //schnorr
+                implementation("org.bouncycastle:bcprov-jdk15on:1.70")
             }
         }
 

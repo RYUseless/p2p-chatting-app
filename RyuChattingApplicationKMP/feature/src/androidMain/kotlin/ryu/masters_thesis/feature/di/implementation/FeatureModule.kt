@@ -32,10 +32,18 @@ import ryu.masters_thesis.feature.bluetoothFinderProtocol.implementation.FinderR
 
 actual fun featurePlatformModule() = module {
     single<BluetoothController>(named("client")) {
-        BluetoothControllerClient(get<Context>(), get<(String) -> CryptoManager>())
+        BluetoothControllerClient(
+            context       = get<Context>(),
+            cryptoFactory = get<(String) -> CryptoManager>(),
+            schnorr       = get()
+        )
     }
     single<BluetoothController>(named("server")) {
-        BluetoothControllerServer(get<Context>(), get<(String) -> CryptoManager>())
+        BluetoothControllerServer(
+            context       = get<Context>(),
+            cryptoFactory = get<(String) -> CryptoManager>(),
+            schnorr       = get()
+        )
     }
     single<ChatManager> { ChatManagerImpl() }
 

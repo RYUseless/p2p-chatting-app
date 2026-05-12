@@ -8,7 +8,9 @@ import android.util.Log
 import androidx.annotation.RequiresPermission
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import ryu.masters_thesis.core.cryptographyUtils.data.SchnorrProof
 import ryu.masters_thesis.core.cryptographyUtils.domain.CryptoManager
+import ryu.masters_thesis.core.cryptographyUtils.domain.SchnorrProtocol
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothConstants
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothController
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothDevice
@@ -21,6 +23,7 @@ import kotlin.math.log
 abstract class BluetoothControllerBase(
     protected val context: Context,
     protected val cryptoFactory: (channelId: String) -> CryptoManager,
+    protected val schnorr: SchnorrProtocol,
 ) : BluetoothController {
 
     protected val btManager: BluetoothManager? =
@@ -72,6 +75,9 @@ abstract class BluetoothControllerBase(
         onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST
     )
 
+    //schnorr
+    protected val cryptoManagers = java.util.concurrent.ConcurrentHashMap<String, CryptoManager>()
+
 
     //protected val _incomingNicknames = MutableSharedFlow<Pair<String, String>>()
     override  val incomingNicknames: SharedFlow<Pair<String, String>> = _incomingNicknames.asSharedFlow()
@@ -102,7 +108,7 @@ abstract class BluetoothControllerBase(
     protected val scope             = CoroutineScope(Dispatchers.Main + SupervisorJob())
     protected var readThread:        Thread? = null
     protected var connectionManager: BluetoothConnectionManager? = null
-    protected val cryptoManagers     = mutableMapOf<String, CryptoManager>()
+    //protected val cryptoManagers     = mutableMapOf<String, CryptoManager>()
     protected val pendingKeyData     = mutableMapOf<String, String>()
     protected var wasCleanDisconnect = false
 
@@ -179,26 +185,44 @@ abstract class BluetoothControllerBase(
                 scope.launch { _incomingNicknames.emit(Pair(mac, payload)) }
             }
             BluetoothConstants.MSG_HANDSHAKE -> {
-                Log.d(BluetoothConstants.TAG_BASE, "HANDSHAKE payload=$payload isServer=${_isServer.value}")
-                scope.launch(Dispatchers.Main) {
-                    when (payload) {
-                        BluetoothConstants.HANDSHAKE_CLIENT_READY if _isServer.value -> {
-                            // Whitelist check — Server override vrátí false pokud userId není povolen
-                            if (!onHandshakeClientReady(senderMac, channelId)) return@launch
-                            Log.d(BluetoothConstants.TAG_BASE, "HANDSHAKE: sending CONFIRMED to $senderMac")
-                            val packet = buildPacket(BluetoothConstants.MSG_HANDSHAKE, channelId, BluetoothConstants.HANDSHAKE_CONFIRMED)
-                            if (senderMac != null) sendMessageTo(senderMac, packet) else sendMessage(channelId, packet)
-                            _isConnected.value     = true
-                            _isVerified.value      = true
-                            _connectionState.value = ConnectionState.CONNECTED
+                Log.d(BluetoothConstants.TAG_BASE, "HANDSHAKE payload=${payload.take(40)} isServer=${_isServer.value}")
+                scope.launch(Dispatchers.Default) {
+                    when {
+                        payload.startsWith(BluetoothConstants.HANDSHAKE_CLIENT_READY) && _isServer.value -> {
+                            val parts = payload.split(BluetoothConstants.ZK_SEPARATOR)
+                            if (parts.size != 3) {
+                                Log.w(BluetoothConstants.TAG_BASE, "HANDSHAKE: malformed ZK payload from $senderMac")
+                                if (senderMac != null) sendMessageTo(senderMac, buildPacket(
+                                    BluetoothConstants.MSG_DISCONNECT, channelId, BluetoothConstants.DISCONNECT_BLOCKED))
+                                return@launch
+                            }
+                            val proof    = SchnorrProof(rBase64 = parts[1], sBase64 = parts[2])
+                            val verifier = cryptoManagers[channelId]?.verifier
+                            if (verifier == null || !schnorr.verifyProof(proof, verifier, channelId)) {
+                                Log.w(BluetoothConstants.TAG_BASE, "HANDSHAKE: invalid ZK proof from $senderMac")
+                                if (senderMac != null) sendMessageTo(senderMac, buildPacket(
+                                    BluetoothConstants.MSG_DISCONNECT, channelId, BluetoothConstants.DISCONNECT_BLOCKED))
+                                return@launch
+                            }
+                            withContext(Dispatchers.Main) {
+                                if (!onHandshakeClientReady(senderMac, channelId)) return@withContext
+                                Log.d(BluetoothConstants.TAG_BASE, "HANDSHAKE: ZK verified, CONFIRMED → $senderMac")
+                                val packet = buildPacket(BluetoothConstants.MSG_HANDSHAKE, channelId, BluetoothConstants.HANDSHAKE_CONFIRMED)
+                                if (senderMac != null) sendMessageTo(senderMac, packet) else sendMessage(channelId, packet)
+                                _isConnected.value     = true
+                                _isVerified.value      = true
+                                _connectionState.value = ConnectionState.CONNECTED
+                            }
                         }
-                        BluetoothConstants.HANDSHAKE_CONFIRMED if !_isServer.value -> {
-                            Log.d(BluetoothConstants.TAG_BASE, "HANDSHAKE: confirmed, chat open")
-                            _isConnected.value     = true
-                            _isVerified.value      = true
-                            _connectionState.value = ConnectionState.CONNECTED
+                        payload == BluetoothConstants.HANDSHAKE_CONFIRMED && !_isServer.value -> {
+                            withContext(Dispatchers.Main) {
+                                Log.d(BluetoothConstants.TAG_BASE, "HANDSHAKE: confirmed, chat open")
+                                _isConnected.value     = true
+                                _isVerified.value      = true
+                                _connectionState.value = ConnectionState.CONNECTED
+                            }
                         }
-                        else -> Log.w(BluetoothConstants.TAG_BASE, "HANDSHAKE unexpected: payload=$payload isServer=${_isServer.value}")
+                        else -> Log.w(BluetoothConstants.TAG_BASE, "HANDSHAKE unexpected: payload=${payload.take(40)}")
                     }
                 }
             }
@@ -312,7 +336,7 @@ abstract class BluetoothControllerBase(
         _needsPassword.value   = false
         _passwordError.value   = null
         _connectionError.value = null
-        cryptoManagers.clear()
+        //cryptoManagers.clear()
         pendingKeyData.clear()
         wasCleanDisconnect     = false
     }
@@ -321,6 +345,7 @@ abstract class BluetoothControllerBase(
     protected fun resetState() {
         Log.d(BluetoothConstants.TAG_BASE, "resetState (full)")
         resetConnectionState()
+        cryptoManagers.clear()
         _isServer.value = false //test
         _currentRoomId.value         = null
         _sessionDevice.value         = null

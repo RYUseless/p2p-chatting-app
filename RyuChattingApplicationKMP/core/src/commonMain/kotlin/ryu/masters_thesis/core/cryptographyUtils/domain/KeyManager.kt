@@ -23,8 +23,14 @@ interface KeyManager {
     fun loadSalt(roomId: String): ByteArray?
 
     /** Zašifruje AES klíč heslem (pro přenos klientovi) */
-    fun encryptAesKeyWithPassword(aesKey: ByteArray, password: String, salt: ByteArray): String
+    //fun encryptAesKeyWithPassword(aesKey: ByteArray, password: String, salt: ByteArray): String
 
     /** Dešifruje přijatý AES klíč heslem */
-    fun decryptAesKeyWithPassword(encryptedKeyData: String, password: String, salt: ByteArray): ByteArray
+    //fun decryptAesKeyWithPassword(encryptedKeyData: String, password: String, salt: ByteArray): ByteArray
+
+    // PBKDF2(password, salt) → witness → SchnorrProtocol.computeVerifier(witness)
+    fun computeVerifier(password: String, salt: ByteArray): String
+
+    // PBKDF2(password, salt) → raw AES key bytes
+    fun deriveAesKey(password: String, salt: ByteArray): ByteArray
 }
