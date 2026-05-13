@@ -30,4 +30,8 @@ interface MessageDao {
     @Query("SELECT * FROM messages WHERE hashedRoomId = :hashedRoomId ORDER BY id DESC LIMIT 1")
     suspend fun getLastEntry(hashedRoomId: String): VaultEntry?
 
+    //optimalizace vykonu
+    @Query("SELECT * FROM messages WHERE id IN (SELECT MAX(id) FROM messages GROUP BY hashedRoomId)")
+    suspend fun getLastEntries(): List<VaultEntry>
+
 }

@@ -46,6 +46,8 @@ data class ChatRoomScreen(
             parameters = { parametersOf(roomName, password, isServerRole) }
         )
         val state by screenModel.state.collectAsState()
+        //new:
+        val messageInput by screenModel.messageInput.collectAsState()
 
         DisposableEffect(isServerRole) {
             onDispose {
@@ -64,12 +66,11 @@ data class ChatRoomScreen(
         LaunchedEffect(Unit) {
             screenModel.oneTimeEvents.collect { event ->
                 when (event) {
-                    is ChatRoomOneTimeEvent.NavigateBack   -> navigator.pop()
+                    is ChatRoomOneTimeEvent.NavigateBack   -> navigator.popUntilRoot()
 
                     is ChatRoomOneTimeEvent.OpenFilePicker -> { }
                     is ChatRoomOneTimeEvent.ShowError      -> { }
                     is ChatRoomOneTimeEvent.ReloadAsServer -> {
-                        // Zde už se to díky unikátnímu `key` načte 100% čistě
                         navigator.replace(
                             ChatRoomScreen(
                                 roomName = event.roomId,
@@ -87,8 +88,9 @@ data class ChatRoomScreen(
         }
 
         ChatRoomContent(
-            state   = state,
-            onEvent = screenModel::onEvent,
+            state        = state,
+            messageInput = messageInput, // ← ZMĚNA
+            onEvent      = screenModel::onEvent,
         )
     }
 }

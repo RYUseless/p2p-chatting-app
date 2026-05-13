@@ -11,7 +11,7 @@ import ryu.masters_thesis.presentation.chatroom.domain.ChatRoomOneTimeEvent
 import ryu.masters_thesis.presentation.chatroom.domain.ChatRoomRepository
 import ryu.masters_thesis.presentation.component.domain.AppSettingsSingleton
 import ryu.masters_thesis.feature.bluetooth.domain.HandoffData
-import ryu.masters_thesis.feature.bluetoothFinderProtocol.domain.FinderResponder
+//import ryu.masters_thesis.feature.bluetoothFinderProtocol.domain.FinderResponder
 import ryu.masters_thesis.feature.bluetoothNeighbourProtokol.domain.NeighbourProtocol
 
 class ChatRoomScreenModel(
@@ -31,7 +31,8 @@ class ChatRoomScreenModel(
     )
     val state: StateFlow<ChatRoomState> = _state.asStateFlow()
 
-    // 1. ZMĚNA: Používáme Channel místo SharedFlow – garantuje doručení eventu do UI
+    private val _messageInput = MutableStateFlow("")
+    val messageInput: StateFlow<String> = _messageInput.asStateFlow()
     private val _oneTimeEvents = Channel<ChatRoomOneTimeEvent>(capacity = Channel.BUFFERED)
     val oneTimeEvents: Flow<ChatRoomOneTimeEvent> = _oneTimeEvents.receiveAsFlow()
 
@@ -49,13 +50,13 @@ class ChatRoomScreenModel(
 
     fun onEvent(event: ChatRoomEvent) {
         when (event) {
-            is ChatRoomEvent.MessageInputChanged -> _state.update { it.copy(messageInput = event.text) }
+            is ChatRoomEvent.MessageInputChanged -> _messageInput.update { event.text }
             is ChatRoomEvent.SendMessageClicked  -> sendMessage()
             is ChatRoomEvent.EmojiMenuToggled    -> _state.update { it.copy(showEmojiMenu = !it.showEmojiMenu) }
-            is ChatRoomEvent.EmojiSelected       -> _state.update { it.copy(
-                messageInput  = it.messageInput + event.emoji,
-                showEmojiMenu = false,
-            )}
+            is ChatRoomEvent.EmojiSelected -> {
+                _messageInput.update { it + event.emoji }
+                _state.update { it.copy(showEmojiMenu = false) }
+            }
             is ChatRoomEvent.AttachFileClicked   -> screenModelScope.launch {
                 // Místo emit() používáme send()
                 _oneTimeEvents.send(ChatRoomOneTimeEvent.OpenFilePicker)
@@ -100,7 +101,10 @@ class ChatRoomScreenModel(
     private fun observeRepository() {
         screenModelScope.launch {
             repository.getMessages().collect { messages ->
-                _state.update { it.copy(messages = messages) }
+                _state.update { it.copy(
+                    messages          = messages,
+                    isLoadingMessages = false,
+                )}
             }
         }
         screenModelScope.launch {
@@ -181,11 +185,11 @@ class ChatRoomScreenModel(
     }
 
     private fun sendMessage() {
-        val text = _state.value.messageInput.trim()
+        val text = _messageInput.value.trim()
         if (text.isBlank()) return
+        _messageInput.update { "" }
         screenModelScope.launch {
             repository.sendMessage(text)
-            _state.update { it.copy(messageInput = "") }
         }
     }
 

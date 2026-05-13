@@ -6,7 +6,7 @@ data class ChatRoomState(
     val roomName:         String              = "",
     val roomPassword:     String              = "",
     val messages:         List<ChatMessage>   = emptyList(),
-    val messageInput:     String              = "",
+    //val messageInput:     String              = "",
     val isConnected:      Boolean             = false,
     val isVerified:       Boolean             = false,
     val showEmojiMenu:    Boolean             = false,
@@ -20,4 +20,7 @@ data class ChatRoomState(
     val isServer:         Boolean             = false,
     val connectedUserIds: List<String>        = emptyList(),
     val isLeaving: Boolean = false,
+
+    //dalsi performance optimalizace:
+    val isLoadingMessages: Boolean = true,
 )

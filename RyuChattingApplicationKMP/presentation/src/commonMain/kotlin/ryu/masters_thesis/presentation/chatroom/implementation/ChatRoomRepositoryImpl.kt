@@ -11,7 +11,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOn
+//import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ryu.masters_thesis.feature.bluetooth.domain.BluetoothController
@@ -34,20 +35,27 @@ class ChatRoomRepositoryImpl(
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    // Nicknames — populovány z příchozích MSG_NICKNAME paketů
     private val _nicknames = MutableStateFlow<Map<String, String>>(emptyMap())
+
+    //private val _optimisticSent = MutableStateFlow<List<ChatMessage>>(emptyList()) // ← ZMĚNA
+
+    private val _optimisticMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
 
     init {
         observeAndPersistIncoming()
         observeIncomingRoomConfig()
         observeIncomingNicknames()
+        //cleanupOptimisticMessages()
     }
 
     // ── Messages ──────────────────────────────────────────────────────────────
 
     override fun getMessages(): Flow<List<ChatMessage>> =
-        messageRepo.observeHistory(channelId).map { messages ->
-            messages.map { msg ->
+        combine(
+            messageRepo.observeHistory(channelId),
+            _optimisticMessages,
+        ) { persisted, optimistic ->
+            val persistedMapped = persisted.map { msg ->
                 ChatMessage(
                     id   = msg.timestamp.toString(),
                     text = msg.content,
@@ -55,17 +63,38 @@ class ChatRoomRepositoryImpl(
                     isMe = msg.sender == "You",
                 )
             }
+            val persistedIds = persistedMapped.mapTo(HashSet()) { it.id }
+
+            val toRemove = optimistic.filter { it.id in persistedIds }
+            if (toRemove.isNotEmpty()) {
+                scope.launch {
+                    _optimisticMessages.update { list -> list.filter { it.id !in persistedIds } }
+                }
+            }
+
+            persistedMapped + optimistic.filter { it.id !in persistedIds }
         }
+            .flowOn(Dispatchers.Default)
 
     @OptIn(ExperimentalTime::class)
     override suspend fun sendMessage(text: String) {
-        controller.sendMessage(channelId, text)
-        messageRepo.store(
-            roomId    = channelId,
-            sender    = "You",
-            content   = text,
-            timestamp = Clock.System.now().toEpochMilliseconds(),
+        val timestamp = Clock.System.now().toEpochMilliseconds()
+        val optimisticMsg = ChatMessage(
+            id   = timestamp.toString(),
+            text = text,
+            time = formatTimestamp(timestamp),
+            isMe = true,
         )
+        _optimisticMessages.update { it + optimisticMsg }
+        controller.sendMessage(channelId, text)
+        scope.launch {
+            messageRepo.store(
+                roomId    = channelId,
+                sender    = "You",
+                content   = text,
+                timestamp = timestamp,
+            )
+        }
     }
 
     override suspend fun sendFile(fileName: String, bytes: ByteArray) {
@@ -93,7 +122,6 @@ class ChatRoomRepositoryImpl(
     override suspend fun promoteToServer(channelId: String, password: String) {
         controller.clearServerHandoff()
         serverController.submitServerPassword(channelId, password)
-        // Blacklist handoff — nový server převezme blacklist z DB
         val blacklist = roomConfigRepo.observeBlacklist(channelId).first()
         serverController.setBlacklist(channelId, blacklist.toSet())
     }
@@ -109,7 +137,6 @@ class ChatRoomRepositoryImpl(
             serverController.sendRoomConfig(channelId, _isSaved)
         }
     }
-
 
     override fun getBlacklist(): Flow<List<String>> =
         roomConfigRepo.observeBlacklist(channelId)
@@ -157,10 +184,8 @@ class ChatRoomRepositoryImpl(
     override fun getConnectedUserIds(): Flow<List<String>> =
         serverController.isServer.flatMapLatest { isServer ->
             if (isServer) {
-                // Server: seznam MAC adres připojených klientů
                 serverController.connectedUserIds
             } else {
-                // Klient: server je jediný peer — odvodit z sessionDevice + isVerified
                 combine(
                     controller.sessionDevice,
                     controller.isVerified,
@@ -172,21 +197,11 @@ class ChatRoomRepositoryImpl(
 
     // ── Cleanup ───────────────────────────────────────────────────────────────
 
-    /*
-    override fun cleanup() {
-        scope.cancel()
-        controller.cleanup()
-    }
-
-     */
-    // V ChatRoomRepositoryImpl.kt - uprav metodu cleanup
     override fun cleanup() {
         scope.cancel()
         _nicknames.value = emptyMap()
-
         controller.cleanup()
         serverController.cleanup()
-
         co.touchlab.kermit.Logger.d("ChatRoomRepo") { "Repository cleanup finished for $channelId" }
     }
 
@@ -202,6 +217,13 @@ class ChatRoomRepositoryImpl(
                         .drop(lastKnownCount)
                         .filter { it.sender != "You" }
                         .forEach { msg ->
+                            val optimisticMsg = ChatMessage(
+                                id   = msg.timestamp.toString(),
+                                text = msg.content,
+                                time = formatTimestamp(msg.timestamp),
+                                isMe = false,
+                            )
+                            _optimisticMessages.update { it + optimisticMsg } // ← ZMĚNA
                             messageRepo.store(
                                 roomId    = channelId,
                                 sender    = msg.sender,
@@ -232,6 +254,7 @@ class ChatRoomRepositoryImpl(
             }
         }
     }
+
     private fun observeIncomingNicknames() {
         scope.launch {
             controller.incomingNicknames.collect { (mac, nickname) ->
@@ -261,4 +284,5 @@ class ChatRoomRepositoryImpl(
     override suspend fun triggerHandoffAndShutdown(successorMac: String) {
         controller.triggerHandoffAndShutdown(successorMac)
     }
+
 }

@@ -4,8 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ryu.masters_thesis.presentation.chatroom.domain.ChatRoomEvent
@@ -14,8 +16,9 @@ import ryu.masters_thesis.presentation.chatroom.ui.info.ChatInfoSheet
 
 @Composable
 fun ChatRoomContent(
-    state: ChatRoomState,
-    onEvent: (ChatRoomEvent) -> Unit,
+    state:        ChatRoomState,
+    messageInput: String,
+    onEvent:      (ChatRoomEvent) -> Unit,
 ) {
     val backgroundColor = MaterialTheme.colorScheme.background
 
@@ -42,11 +45,22 @@ fun ChatRoomContent(
                 reverseLayout  = true,
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {
-                items(state.messages.reversed()) { message ->
-                    MessageBubble(
-                        message      = message,
-                        chatColorHex = state.chatColorHex,
-                    )
+                if (state.isLoadingMessages) {
+                    item {
+                        Box(
+                            modifier         = Modifier.fillParentMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                } else {
+                    items(state.messages.reversed()) { message ->
+                        MessageBubble(
+                            message      = message,
+                            chatColorHex = state.chatColorHex,
+                        )
+                    }
                 }
             }
 
@@ -55,7 +69,7 @@ fun ChatRoomContent(
             }
 
             ChatBottomBar(
-                messageInput = state.messageInput,
+                messageInput = messageInput,
                 onEvent      = onEvent,
             )
         }
