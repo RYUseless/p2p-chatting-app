@@ -18,7 +18,7 @@ import ryu.masters_thesis.feature.bluetooth.domain.ConnectionState
 import ryu.masters_thesis.feature.bluetooth.domain.HandoffData
 import ryu.masters_thesis.feature.bluetooth.domain.RoomConfigPacket
 import ryu.masters_thesis.feature.messages.domain.Message
-import kotlin.math.log
+//import kotlin.math.log
 
 abstract class BluetoothControllerBase(
     protected val context: Context,
@@ -78,7 +78,6 @@ abstract class BluetoothControllerBase(
     //schnorr
     protected val cryptoManagers = java.util.concurrent.ConcurrentHashMap<String, CryptoManager>()
 
-
     //protected val _incomingNicknames = MutableSharedFlow<Pair<String, String>>()
     override  val incomingNicknames: SharedFlow<Pair<String, String>> = _incomingNicknames.asSharedFlow()
 
@@ -106,11 +105,15 @@ abstract class BluetoothControllerBase(
     protected abstract fun sendMessageTo(mac: String, packet: String)
 
     protected val scope             = CoroutineScope(Dispatchers.Main + SupervisorJob())
-    protected var readThread:        Thread? = null
-    protected var connectionManager: BluetoothConnectionManager? = null
+    //protected var readThread:        Thread? = null
+    @Volatile protected var readThread: Thread? = null
+    //protected var connectionManager: BluetoothConnectionManager? = null
+    @Volatile protected var connectionManager: BluetoothConnectionManager? = null
     //protected val cryptoManagers     = mutableMapOf<String, CryptoManager>()
-    protected val pendingKeyData     = mutableMapOf<String, String>()
-    protected var wasCleanDisconnect = false
+    //protected val pendingKeyData     = mutableMapOf<String, String>()
+    protected val pendingKeyData = java.util.concurrent.ConcurrentHashMap<String, String>()
+    //protected var wasCleanDisconnect = false
+    @Volatile protected var wasCleanDisconnect = false
 
     override fun clearConnectionError() { _connectionError.value = null }
 
@@ -128,14 +131,14 @@ abstract class BluetoothControllerBase(
     }
 
     protected fun addMessage(channelId: String, sender: String, content: String) {
-        val current  = _channelMessages.value.toMutableMap()
-        val existing = current.getOrDefault(channelId, emptyList())
-        current[channelId] = existing + Message(
-            sender    = sender,
-            content   = content,
-            timestamp = System.currentTimeMillis(),
-        )
-        _channelMessages.value = current
+        _channelMessages.update { current ->
+            val existing = current.getOrDefault(channelId, emptyList())
+            current + (channelId to existing + Message(
+                sender    = sender,
+                content   = content,
+                timestamp = System.currentTimeMillis(),
+            ))
+        }
     }
 
     override fun getMessages(channelId: String): List<Message> =
@@ -186,7 +189,7 @@ abstract class BluetoothControllerBase(
             }
             BluetoothConstants.MSG_HANDSHAKE -> {
                 Log.d(BluetoothConstants.TAG_BASE, "HANDSHAKE payload=${payload.take(40)} isServer=${_isServer.value}")
-                scope.launch(Dispatchers.Default) {
+                scope.launch(Dispatchers.IO) {
                     when {
                         payload.startsWith(BluetoothConstants.HANDSHAKE_CLIENT_READY) && _isServer.value -> {
                             val parts = payload.split(BluetoothConstants.ZK_SEPARATOR)

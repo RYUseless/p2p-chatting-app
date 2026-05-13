@@ -101,6 +101,13 @@ kotlin {
                 implementation(libs.androidx.testExt.junit)
             }
         }
+        getByName("androidHostTest") {
+            dependencies {
+                implementation("org.robolectric:robolectric:4.13")
+                implementation("androidx.test:core:1.6.1")
+                implementation("org.bouncycastle:bcprov-jdk15on:1.70")
+            }
+        }
 
         iosMain {
             dependencies {
