@@ -66,24 +66,40 @@ class AesKeyManagerImpl(
         return Base64.decode(saltString, Base64.NO_WRAP)
     }
 
+    /*
     override fun computeVerifier(password: String, salt: ByteArray): String {
         Log.d(TAG, "computeVerifier")
+        val witness = deriveWithContext(password.trim(), salt)
+        return schnorr.computeVerifier(witness)
+    }
+
+    //override fun deriveAesKey(password: String, salt: ByteArray): ByteArray {
+    //    Log.d(TAG, "deriveAesKey")
+    //    return deriveWithContext(password.trim(), salt)
+    //}
+
+     */
+
+    override fun computeVerifier(password: String, salt: ByteArray): String {
         val witness = deriveWitness(password.trim(), salt)
         return schnorr.computeVerifier(witness)
     }
 
-    override fun deriveAesKey(password: String, salt: ByteArray): ByteArray {
-        Log.d(TAG, "deriveAesKey")
-        return deriveWitness(password.trim(), salt)
-    }
+    override fun deriveAesKey(password: String, salt: ByteArray)  = deriveWithContext(password.trim(), salt, "enc")
+
 
     // ── private ───────────────────────────────────────────────────────────────
     /** PBKDF2(password, salt) → 32 raw bytes (witness i AES klíč sdílí stejný KDF) */
-    private fun deriveWitness(password: String, salt: ByteArray): ByteArray {
-        val spec    = PBEKeySpec(password.toCharArray(), salt, CryptoConstants.PBKDF2_ITERATIONS, CryptoConstants.AES_KEY_SIZE)
+    private fun deriveWithContext(password: String, salt: ByteArray, context: String): ByteArray {
+        val contextualSalt = salt + context.toByteArray(Charsets.UTF_8)
+        val spec = PBEKeySpec(password.toCharArray(), contextualSalt, CryptoConstants.PBKDF2_ITERATIONS, CryptoConstants.AES_KEY_SIZE)
         val factory = SecretKeyFactory.getInstance(CryptoConstants.PBKDF2_ALGORITHM)
         return factory.generateSecret(spec).encoded
     }
+
+    override fun deriveWitness(password: String, salt: ByteArray) = deriveWithContext(password.trim(), salt, "auth")
+
+    // computeVerifier beze změny — interně zavolá deriveWitness přes Schnorr
 
     companion object {
         private const val TAG               = "AesKeyManagerImpl"

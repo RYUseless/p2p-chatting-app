@@ -33,4 +33,6 @@ interface KeyManager {
 
     // PBKDF2(password, salt) → raw AES key bytes
     fun deriveAesKey(password: String, salt: ByteArray): ByteArray
+
+    fun deriveWitness(password: String, salt: ByteArray): ByteArray
 }

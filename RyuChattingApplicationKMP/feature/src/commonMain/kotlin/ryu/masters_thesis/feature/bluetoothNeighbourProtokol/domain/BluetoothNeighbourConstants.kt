@@ -6,9 +6,9 @@ const val MSG_NBR_LSA_REQUEST = "NBR_LSA_REQUEST"
 const val MSG_NBR_ROOM_ADV    = "NBR_ROOM_ADV"
 const val MSG_NBR_TUNNEL      = "NBR_TUNNEL"
 
-const val HELLO_INTERVAL_MS   = 15_000L
+const val HELLO_INTERVAL_MS   = 20_000L
 const val LSA_INTERVAL_MS     = 60_000L
-const val NEIGHBOUR_DEAD_MS   = 45_000L
+const val NEIGHBOUR_DEAD_MS   = 120_000L
 
 const val MAX_LSA_TTL         = 5
 const val MAX_ROOM_ADV_HOPS   = 3

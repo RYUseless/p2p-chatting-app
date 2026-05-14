@@ -49,7 +49,8 @@ class AESCryptoManagerImpl(
             val saltAes  = Base64.decode(parts[1], Base64.NO_WRAP)
 
             secretKey = keyManager.deriveAesKey(password, saltAes)
-            witness   = keyManager.deriveAesKey(password, saltAuth)
+            //witness   = keyManager.deriveAesKey(password, saltAuth)
+            witness = keyManager.deriveWitness(password, saltAuth)
 
             keyManager.saveSalt(roomId, saltAuth)
             isUnlocked = true

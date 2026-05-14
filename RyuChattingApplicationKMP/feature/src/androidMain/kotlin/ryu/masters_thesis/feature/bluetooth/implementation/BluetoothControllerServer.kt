@@ -8,7 +8,7 @@ import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresPermission
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancel
+//import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -47,8 +47,16 @@ class BluetoothControllerServer(
         val crypto = cryptoManagers[channelId]
         scope.launch(Dispatchers.IO) {
             try {
-                val payload = crypto?.encrypt(text) ?: text
-                val packet  = buildPacket(BluetoothConstants.MSG_DATA, channelId, payload)
+                val payload = if (crypto != null) {
+                    crypto.encrypt(text) ?: run {
+                        Log.e(BluetoothConstants.TAG_SERVER, "sendMessage: encrypt failed for $channelId, aborting")
+                        return@launch
+                    }
+                } else {
+                    Log.d(BluetoothConstants.TAG_SERVER, "sendMessage: no crypto for $channelId (BNP/pre-handshake), plaintext")
+                    text
+                }
+                val packet = buildPacket(BluetoothConstants.MSG_DATA, channelId, payload)
                 serverManager?.broadcast(packet)
                 withContext(Dispatchers.Main) { addMessage(channelId, "You", text) }
             } catch (e: Exception) {

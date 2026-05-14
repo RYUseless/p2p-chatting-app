@@ -144,15 +144,21 @@ abstract class BluetoothControllerBase(
     override fun getMessages(channelId: String): List<Message> =
         _channelMessages.value.getOrDefault(channelId, emptyList())
 
+    //change
     override fun sendMessage(channelId: String, text: String) {
         val crypto = cryptoManagers[channelId]
         scope.launch(Dispatchers.IO) {
             try {
-                val encrypted = crypto?.encrypt(text)
-                if (encrypted == null) Log.w(BluetoothConstants.TAG_BASE, "sendMessage: no crypto for $channelId, plain")
-                val packet = encrypted
-                    ?.let { buildPacket(BluetoothConstants.MSG_DATA, channelId, it) }
-                    ?: buildPacket(BluetoothConstants.MSG_DATA, channelId, text)
+                val payload = if (crypto != null) {
+                    crypto.encrypt(text) ?: run {
+                        Log.e(BluetoothConstants.TAG_BASE, "sendMessage: encrypt failed for $channelId, aborting")
+                        return@launch
+                    }
+                } else {
+                    Log.d(BluetoothConstants.TAG_BASE, "sendMessage: no crypto for $channelId (BNP/pre-handshake), plaintext")
+                    text
+                }
+                val packet = buildPacket(BluetoothConstants.MSG_DATA, channelId, payload)
                 connectionManager?.sendMessage(packet)
                 Log.d(BluetoothConstants.TAG_BASE, "sendMessage: channelId=$channelId len=${text.length}")
                 withContext(Dispatchers.Main) { addMessage(channelId, "You", text) }
@@ -230,12 +236,19 @@ abstract class BluetoothControllerBase(
                 }
             }
             BluetoothConstants.MSG_DATA -> {
-                val decrypted = try {
-                    cryptoManagers[channelId]?.decrypt(payload).also {
-                        if (it == null) Log.w(BluetoothConstants.TAG_BASE, "MSG_DATA: no crypto for $channelId")
-                    } ?: payload
-                } catch (e: Exception) {
-                    Log.e(BluetoothConstants.TAG_BASE, "decrypt error for $channelId: ${e.message}", e)
+                val crypto = cryptoManagers[channelId]
+                val decrypted = if (crypto != null) {
+                    try {
+                        crypto.decrypt(payload) ?: run {
+                            Log.e(BluetoothConstants.TAG_BASE, "MSG_DATA: decrypt failed for $channelId, dropping")
+                            return
+                        }
+                    } catch (e: Exception) {
+                        Log.e(BluetoothConstants.TAG_BASE, "decrypt error for $channelId: ${e.message}", e)
+                        return
+                    }
+                } else {
+                    Log.d(BluetoothConstants.TAG_BASE, "MSG_DATA: no crypto for $channelId (BNP/pre-handshake), plaintext")
                     payload
                 }
                 Log.d(BluetoothConstants.TAG_BASE, "MSG_DATA: channelId=$channelId len=${decrypted.length}")
