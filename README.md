@@ -38,7 +38,7 @@ The project explores the feasibility of a fully offline, cryptographically authe
 **Key properties:**
 - Zero-server architecture — all communication is device-to-device
 - AES-256-GCM encrypted message payloads
-- Zero-knowledge authentication via Schnorr proofs on secp256k1
+- Zero-knowledge authentication via Fiat-Shamir transformed Schnorr proofs on secp256k1 curve
 - Multi-hop room advertisement propagation via a custom routing protocol
 - Android-first implementation; iOS platform layer is stub-only
 
@@ -190,6 +190,11 @@ No password material is ever transmitted; the server only learns that the client
 
 ## Repository Structure
 
+- Masters Thesis `src`: [folder link](RyuChattingApplicationKMP/)
+- Semestral Thesis `src`: [folder link](RyuP2P/)
+- Dead attempt `src`: [folder link](Ryus-Chatting-Application/)
+
+- Masters thesis folder structure, only relevant parts:
 ```
 .
 ├── app/                        # Application entry point, DI graph root
@@ -212,5 +217,5 @@ No password material is ever transmitted; the server only learns that the client
 ---
 
 <p align="center">
-  <sub>Master's Thesis · Department of Computer Science · 2024/2025</sub>
+  <sub>Master's Thesis 2025/2026</sub>
 </p>
