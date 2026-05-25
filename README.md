@@ -14,18 +14,19 @@
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Architecture](#architecture)
+2. [How to Run](#how-to-run)
+3. [Architecture](#architecture)
    - [Module Graph](#module-graph)
    - [Layer Breakdown](#layer-breakdown)
    - [Feature Modules](#feature-modules)
-3. [Protocol Stack](#protocol-stack)
+4. [Protocol Stack](#protocol-stack)
    - [Transport — BTP](#transport--btp-bluetooth-transport-protocol)
    - [Discovery — BNP](#discovery--bnp-bluetooth-neighbour-protocol)
    - [Application — BFP](#application--bfp-bluetooth-find-protocol)
    - [Authentication](#authentication--schnorr--fiat-shamir)
-4. [Security](#security)
-5. [Technology Stack](#technology-stack)
-6. [Repository Structure](#repository-structure)
+5. [Security](#security)
+6. [Technology Stack](#technology-stack)
+7. [Repository Structure](#repository-structure)
 
 ---
 
@@ -43,6 +44,17 @@ The project explores the feasibility of a fully offline, cryptographically authe
 - Android-first implementation; iOS platform layer is stub-only
 
 ---
+
+## How to Run
+
+No release build is available — this project is a proof of concept developed as part of a master's thesis.
+
+To run the app:
+
+1. Clone the repository: `git clone https://github.com/RYUseless/p2p-chatting-app.git`
+2. Open the project in [Android Studio](https://developer.android.com/studio) (Hedgehog or newer)
+3. Connect an Android device with Bluetooth enabled — USB or Wi-Fi debugging must be enabled for the device to be recognised
+4. Run the `app` configuration directly on the device — Android Studio will compile and deploy the app automatically
 
 ## Architecture
 
